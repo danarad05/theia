@@ -21,6 +21,7 @@ import { TabBarToolbarContribution, TabBarToolbarRegistry } from '@theia/core/li
 // import { BulkEditWidget } from './BulkEdit-widget';
 // import { bulkEditCommands } from './BulkEdit-commands';
 import { BulkEditContribution } from './bulk-edit-contribution';
+import { BulkEditCommands } from './bulk-edit-commands';
 // import { bulkEditChannelManager } from '../common/BulkEdit-channel';
 
 @injectable()
@@ -58,12 +59,18 @@ export class BulkEditToolbarContribution implements TabBarToolbarContribution {
         //     isVisible: widget => widget instanceof BulkEditWidget,
         //     onDidChange: this.onChannelsChanged
         // });
-        // toolbarRegistry.registerItem({
-        //     id: bulkEditCommands.CLEAR__WIDGET.id,
-        //     command: bulkEditCommands.CLEAR__WIDGET.id,
-        //     tooltip: 'Clear BulkEdit',
-        //     priority: 1,
-        // });
+        toolbarRegistry.registerItem({
+            id: BulkEditCommands.APPLY.id,
+            command: BulkEditCommands.APPLY.id,
+            tooltip: 'Apply Refactoring',
+            priority: 0,
+        });
+        toolbarRegistry.registerItem({
+            id: BulkEditCommands.DISCARD.id,
+            command: BulkEditCommands.DISCARD.id,
+            tooltip: 'Discard Refactoring',
+            priority: 1,
+        });
         // toolbarRegistry.registerItem({
         //     id: bulkEditCommands.LOCK__WIDGET.id,
         //     command: bulkEditCommands.LOCK__WIDGET.id,

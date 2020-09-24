@@ -14,15 +14,20 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { injectable, inject, postConstruct } from 'inversify';
+import { injectable, inject } from 'inversify';
 import URI from '@theia/core/lib/common/uri';
 import { Widget } from '@theia/core/lib/browser/widgets/widget';
 import { MaybePromise } from '@theia/core/lib/common/types';
 import { OpenHandler, OpenerOptions, OpenerService } from '@theia/core/lib/browser';
 // CommonCommands, quickCommand, open,
-import { CommandRegistry, MenuModelRegistry, CommandService, MenuPath } from '@theia/core/lib/common';
+import { CommandRegistry, CommandService, MenuModelRegistry, MenuPath } from '@theia/core/lib/common';
 import { AbstractViewContribution } from '@theia/core/lib/browser/shell/view-contribution';
 import { BulkEditWidget } from './bulk-edit-widget';
+import { BulkEditCommands } from './bulk-edit-commands';
+// import { WorkspaceEdit } from '@theia/plugin-ext/src/plugin/types-impl';
+import { MonacoBulkEditService } from '@theia/monaco/lib/browser/monaco-bulk-edit-service';
+// import { WorkspaceEditDto, WorkspaceTextEditDto } from '@theia/plugin-ext/src/common';
+// import { WorkspaceEdit } from '@theia/plugin-ext/src/plugin/types-impl';
 // import { BulkEditContextMenu } from './bulk-edit-context-menu';
 // import { BulkEditUri } from '../common/bulk-edit-uri';
 // import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
@@ -35,86 +40,47 @@ export const TEXT_EDIT_GROUP = [...MENU_PATH, '0_text_edit_group'];
 @injectable()
 export class BulkEditContribution extends AbstractViewContribution<BulkEditWidget> implements OpenHandler {
 
-    // @inject(ClipboardService)
-    // protected readonly clipboardService: ClipboardService;
-
     @inject(CommandService)
     protected readonly commandService: CommandService;
-
-    // @inject(BulkEditChannelManager)
-    // protected readonly bulkEditChannelManager: BulkEditChannelManager;
 
     @inject(OpenerService)
     protected readonly openerService: OpenerService;
 
     readonly id: string = `${BulkEditWidget.ID}-opener`;
 
-    constructor() {
+    constructor(
+        private readonly bulkEditService: MonacoBulkEditService,
+    ) {
         super({
             widgetId: BulkEditWidget.ID,
-            widgetName: 'BulkEdit',
+            widgetName: 'Refactor Preview',
             defaultWidgetOptions: {
                 area: 'bottom'
             },
-            toggleCommandId: 'bulk-edit:toggle',
+            toggleCommandId: BulkEditCommands.TOGGLE_VIEW.id,
             toggleKeybinding: 'CtrlCmd+Shift+U'
         });
+        this.bulkEditService.setPreviewHandler((edits: monaco.languages.WorkspaceEdit) => this._previewEdit(edits));
     }
 
-    @postConstruct()
-    protected init(): void {
-        // this.bulkEditChannelManager.onChannelWasShown(({ name, preserveFocus }) =>
-        //     open(this.openerService, BulkEditUri.create(name), { activate: !preserveFocus, reveal: true }));
-    }
+    // @postConstruct()
+    // protected init(): void {
+    //     // this.bulkEditChannelManager.onChannelWasShown(({ name, preserveFocus }) =>
+    //     //     open(this.openerService, BulkEditUri.create(name), { activate: !preserveFocus, reveal: true }));
+    // }
 
     registerCommands(registry: CommandRegistry): void {
         super.registerCommands(registry);
-        // registry.registerCommand(BulkEditCommands.CLEAR__WIDGET, {
-        //     isEnabled: arg => {
-        //         if (arg instanceof Widget) {
-        //             return arg instanceof BulkEditWidget;
-        //         }
-        //         return this.shell.currentWidget instanceof BulkEditWidget;
-        //     },
-        //     isVisible: arg => {
-        //         if (arg instanceof Widget) {
-        //             return arg instanceof BulkEditWidget;
-        //         }
-        //         return this.shell.currentWidget instanceof BulkEditWidget;
-        //     },
-        //     execute: () => {
-        //         this.widget.then(widget => {
-        //             this.withWidget(widget, bulk-edit => {
-        //                 bulk-edit.clear();
-        //                 return true;
-        //             });
-        //         });
-        //     }
-        // });
-        // registry.registerCommand(BulkEditCommands.LOCK__WIDGET, {
-        //     isEnabled: widget => this.withWidget(widget, bulk-edit => !bulk-edit.isLocked),
-        //     isVisible: widget => this.withWidget(widget, bulk-edit => !bulk-edit.isLocked),
-        //     execute: widget => this.withWidget(widget, bulk-edit => {
-        //         bulk-edit.lock();
-        //         return true;
-        //     })
-        // });
-        // registry.registerCommand(BulkEditCommands.UNLOCK__WIDGET, {
-        //     isEnabled: widget => this.withWidget(widget, bulk-edit => bulk-edit.isLocked),
-        //     isVisible: widget => this.withWidget(widget, bulk-edit => bulk-edit.isLocked),
-        //     execute: widget => this.withWidget(widget, bulk-edit => {
-        //         bulk-edit.unlock();
-        //         return true;
-        //     })
-        // });
-        // registry.registerCommand(BulkEditCommands.COPY_ALL, {
-        //     execute: () => {
-        //         const textToCopy = this.tryGetWidget()?.getText();
-        //         if (textToCopy) {
-        //             this.clipboardService.writeText(textToCopy);
-        //         }
-        //     }
-        // });
+        registry.registerCommand(BulkEditCommands.APPLY, {
+            isEnabled: widget => this.withWidget(widget, () => true),
+            isVisible: widget => this.withWidget(widget, () => true),
+            execute: widget => this.withWidget(widget, () => true) // this.collapseAllProblems()
+        });
+        registry.registerCommand(BulkEditCommands.DISCARD, {
+            isEnabled: widget => this.withWidget(widget, () => true),
+            isVisible: widget => this.withWidget(widget, () => true),
+            execute: widget => this.withWidget(widget, () => true) // this.collapseAllProblems()
+        });
     }
 
     registerMenus(registry: MenuModelRegistry): void {
@@ -124,18 +90,10 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditWidge
             commandId: 'aaaa',
             label: 'AAAAAVVV'
         });
-        // registry.registerMenuAction(BulkEditContextMenu.TEXT_EDIT_GROUP, {
-        //     commandId: BulkEditCommands.COPY_ALL.id,
-        //     label: 'Copy All'
-        // });
-        // registry.registerMenuAction(BulkEditContextMenu.COMMAND_GROUP, {
-        //     commandId: quickCommand.id,
-        //     label: 'Find Command...'
-        // });
-        // registry.registerMenuAction(BulkEditContextMenu.WIDGET_GROUP, {
-        //     commandId: BulkEditCommands.CLEAR__WIDGET.id,
-        //     label: 'Clear BulkEdit'
-        // });
+        registry.registerMenuAction(TEXT_EDIT_GROUP, {
+            commandId: 'asdads',
+            label: 'Clear BulkEdit'
+        });
         console.log('AAA registerMenus2');
     }
 
@@ -143,7 +101,7 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditWidge
         return 200; // BulkEditUri.is(uri) ? 200 : 0;
     }
 
-    async open(uri: URI, options?: OpenerOptions): Promise<BulkEditWidget> {
+    async open(uri?: URI, options?: OpenerOptions): Promise<BulkEditWidget> {
         // if (!BulkEditUri.is(uri)) {
         //     throw new Error(`Expected '${BulkEditUri.SCHEME}' URI scheme. Got: ${uri} instead.`);
         // }
@@ -151,10 +109,101 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditWidge
         return widget;
     }
 
-    protected withWidget(
-        widget: Widget | undefined = this.tryGetWidget(),
-        predicate: (bulkEdit: BulkEditWidget) => boolean = () => true
-    ): boolean | false {
-        return widget instanceof BulkEditWidget ? predicate(widget) : false;
+    protected withWidget<T>(widget: Widget | undefined = this.tryGetWidget(), cb: (bulkEdit: BulkEditWidget) => T): T | false {
+        if (widget instanceof BulkEditWidget) {
+            return cb(widget);
+        }
+        return false;
     }
+
+    // async $tryApplyWorkspaceEdit(dto: WorkspaceEditDto): Promise<boolean> {
+    //     const edits = this.toMonacoWorkspaceEdit(dto);
+    //     try {
+    //         const { success } = await this.bulkEditService.apply(edits);
+    //         return success;
+    //     } catch {
+    //         return false;
+    //     }
+    // }
+
+    // private toMonacoWorkspaceEdit(data: WorkspaceEditDto | undefined): monaco.languages.WorkspaceEdit {
+    //     return {
+    //         edits: (data && data.edits || []).map(edit => {
+    //             if (WorkspaceTextEditDto.is(edit)) {
+    //                 return { resource: monaco.Uri.revive(edit.resource), edit: edit.edit };
+    //             } else {
+    //                 return { newUri: monaco.Uri.revive(edit.newUri), oldUri: monaco.Uri.revive(edit.oldUri), options: edit.options };
+    //             }
+    //         })
+    //     };
+    // }
+
+    private async _previewEdit(edits: monaco.languages.WorkspaceEdit): Promise<monaco.languages.WorkspaceEdit> {
+        console.log('AAA _previewEdit1', edits);
+        // get bulkeditpane
+
+        // check if pane has input
+
+        // setinput
+
+        const widget = await this.open();
+        console.log('AAA _previewEdit2', widget);
+        return edits;
+        //     // this._ctxEnabled.set(true);
+
+        //     // const uxState = this._activeSession?.uxState ?? new UXState(this._panelService, this._editorGroupsService);
+        //     // const view = await getBulkEditPane(this._viewsService);
+        //     // if (!view) {
+        //     //     // this._ctxEnabled.set(false);
+        //     //     return edits;
+        //     // }
+
+        //     // // check for active preview session and let the user decide
+        //     // if (view.hasInput()) {
+        //     //     const choice = await this._dialogService.show(
+        //     //         Severity.Info,
+        //     //         localize('overlap', "Another refactoring is being previewed."),
+        //     //         [localize('cancel', "Cancel"), localize('continue', "Continue")],
+        //     //         { detail: localize('detail', "Press 'Continue' to discard the previous refactoring and continue with the current refactoring.") }
+        //     //     );
+
+        //     //     if (choice.choice === 0) {
+        //     //         // this refactoring is being cancelled
+        //     //         return [];
+        //     //     }
+        //     // }
+
+        //     // // session
+        //     // let session: PreviewSession;
+        //     // if (this._activeSession) {
+        //     //     this._activeSession.cts.dispose(true);
+        //     //     session = new PreviewSession(uxState);
+        //     // } else {
+        //     //     session = new PreviewSession(uxState);
+        //     // }
+        //     // this._activeSession = session;
+
+        //     // // the actual work...
+        //     // try {
+
+        //     //     return await view.setInput(edits, session.cts.token) ?? [];
+
+        //     // } finally {
+        //     //     // restore UX state
+        //     //     if (this._activeSession === session) {
+        //     //         await this._activeSession.uxState.restore();
+        //     //         this._activeSession.cts.dispose();
+        //     //         this._ctxEnabled.set(false);
+        //     //         this._activeSession = undefined;
+        //     //     }
+        //     // }
+    }
+
+    // async getBulkEditPane(viewsService: IViewsService): Promise<BulkEditWidget | undefined> {
+    //     const view = await viewsService.openView(BulkEditWidget.ID, true);
+    //     if (view instanceof BulkEditWidget) {
+    //         return view;
+    //     }
+    //     return undefined;
+    // }
 }

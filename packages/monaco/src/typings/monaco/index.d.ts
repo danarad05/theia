@@ -99,6 +99,13 @@ declare module monaco.editor {
         removeDecorations(decorationTypeKey: string): void;
     }
 
+    export interface IBulkEditOptions {
+        editor?: ICodeEditor;
+        progress?: IProgress<IProgressStep>;
+        showPreview?: boolean;
+        label?: string;
+    }
+
     // https://github.com/theia-ide/vscode/blob/standalone/0.20.x/src/vs/editor/browser/services/bulkEditService.ts#L21
     export interface IBulkEditResult {
         ariaSummary: string;

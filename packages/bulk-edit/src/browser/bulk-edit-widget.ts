@@ -20,9 +20,10 @@ import { toArray } from '@phosphor/algorithm';
 import { IDragEvent } from '@phosphor/dragdrop';
 import { EditorWidget } from '@theia/editor/lib/browser';
 import { MonacoEditor } from '@theia/monaco/lib/browser/monaco-editor';
-import { SelectionService } from '@theia/core/lib/common/selection-service';
+// import { SelectionService } from '@theia/core/lib/common/selection-service';
 import { MonacoEditorProvider } from '@theia/monaco/lib/browser/monaco-editor-provider';
-import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
+import { Disposable } from '@theia/core/lib/common/disposable';
+// DisposableCollection
 import { Message, BaseWidget, DockPanel, Widget, MessageLoop, StatefulWidget } from '@theia/core/lib/browser';
 // import { bulk-editUri } from '../common/bulk-edit-uri';
 // import { bulkEditChannelManager, bulk-editChannel } from '../common/bulk-edit-channel';
@@ -32,19 +33,21 @@ import { Emitter, Event, deepClone } from '@theia/core';
 export class BulkEditWidget extends BaseWidget implements StatefulWidget {
     static readonly ID = 'bulkEditView';
 
-    @inject(SelectionService)
-    protected readonly selectionService: SelectionService;
-
     @inject(MonacoEditorProvider)
     protected readonly editorProvider: MonacoEditorProvider;
 
-    // @inject(BulkEditChannelManager)
-    // protected readonly bulkEditChannelManager: bulkEditChannelManager;
-
     protected _state: bulkEditWidget.State = { locked: false };
     protected readonly editorContainer: DockPanel;
-    protected readonly toDisposeOnSelectedChannelChanged = new DisposableCollection();
+    // protected readonly toDisposeOnSelectedChannelChanged = new DisposableCollection();
     protected readonly onStateChangedEmitter = new Emitter<bulkEditWidget.State>();
+    protected get state(): bulkEditWidget.State {
+        return this._state;
+    }
+
+    protected set state(state: bulkEditWidget.State) {
+        this._state = state;
+        this.onStateChangedEmitter.fire(this._state);
+    }
 
     constructor() {
         super();
@@ -63,9 +66,7 @@ export class BulkEditWidget extends BaseWidget implements StatefulWidget {
     @postConstruct()
     protected init(): void {
         this.toDispose.pushAll([
-            // this.bulkEditChannelManager.onChannelWasHidden(() => this.refreshEditorWidget()),
-            // this.bulkEditChannelManager.onChannelWasShown(({ preserveFocus }) => this.refreshEditorWidget({ preserveFocus: !!preserveFocus })),
-            this.toDisposeOnSelectedChannelChanged,
+            //   this.toDisposeOnSelectedChannelChanged,
             this.onStateChangedEmitter,
             this.onStateChanged(() => this.update())
         ]);
@@ -76,21 +77,16 @@ export class BulkEditWidget extends BaseWidget implements StatefulWidget {
         return this.state;
     }
 
+    hasState(): boolean {
+        return Boolean(this.state);
+    }
+
     restoreState(oldState: object & Partial<bulkEditWidget.State>): void {
         const copy = deepClone(this.state);
         if (oldState.locked) {
             copy.locked = oldState.locked;
         }
         this.state = copy;
-    }
-
-    protected get state(): bulkEditWidget.State {
-        return this._state;
-    }
-
-    protected set state(state: bulkEditWidget.State) {
-        this._state = state;
-        this.onStateChangedEmitter.fire(this._state);
     }
 
     // protected async refreshEditorWidget({ preserveFocus }: { preserveFocus: boolean } = { preserveFocus: false }): Promise<void> {
@@ -161,44 +157,44 @@ export class BulkEditWidget extends BaseWidget implements StatefulWidget {
         // }
     }
 
-    selectAll(): void {
-        const editor = this.editor;
-        if (editor) {
-            const model = editor.getControl().getModel();
-            if (model) {
-                const endLine = model.getLineCount();
-                const endCharacter = model.getLineMaxColumn(endLine);
-                editor.getControl().setSelection(new monaco.Range(1, 1, endLine, endCharacter));
-            }
-        }
-    }
+    // selectAll(): void {
+    //     const editor = this.editor;
+    //     if (editor) {
+    //         const model = editor.getControl().getModel();
+    //         if (model) {
+    //             const endLine = model.getLineCount();
+    //             const endCharacter = model.getLineMaxColumn(endLine);
+    //             editor.getControl().setSelection(new monaco.Range(1, 1, endLine, endCharacter));
+    //         }
+    //     }
+    // }
 
-    lock(): void {
-        this.state = { ...deepClone(this.state), locked: true };
-    }
+    // lock(): void {
+    //     this.state = { ...deepClone(this.state), locked: true };
+    // }
 
-    unlock(): void {
-        this.state = { ...deepClone(this.state), locked: false };
-    }
+    // unlock(): void {
+    //     this.state = { ...deepClone(this.state), locked: false };
+    // }
 
-    get isLocked(): boolean {
-        return !!this.state.locked;
-    }
+    // get isLocked(): boolean {
+    //     return !!this.state.locked;
+    // }
 
-    protected revealLastLine(): void {
-        if (this.isLocked) {
-            return;
-        }
-        const editor = this.editor;
-        if (editor) {
-            const model = editor.getControl().getModel();
-            if (model) {
-                const lineNumber = model.getLineCount();
-                const column = model.getLineMaxColumn(lineNumber);
-                editor.getControl().revealPosition({ lineNumber, column }, monaco.editor.ScrollType.Smooth);
-            }
-        }
-    }
+    // protected revealLastLine(): void {
+    //     if (this.isLocked) {
+    //         return;
+    //     }
+    //     const editor = this.editor;
+    //     if (editor) {
+    //         const model = editor.getControl().getModel();
+    //         if (model) {
+    //             const lineNumber = model.getLineCount();
+    //             const column = model.getLineMaxColumn(lineNumber);
+    //             editor.getControl().revealPosition({ lineNumber, column }, monaco.editor.ScrollType.Smooth);
+    //         }
+    //     }
+    // }
 
     // private get selectedChannel(): bulk-editChannel | undefined {
     //     return this.bulkEditChannelManager.selectedChannel;
@@ -235,7 +231,6 @@ export class BulkEditWidget extends BaseWidget implements StatefulWidget {
     getText(): string | undefined {
         return this.editor?.getControl().getModel()?.getValue();
     }
-
 }
 
 export namespace bulkEditWidget {
