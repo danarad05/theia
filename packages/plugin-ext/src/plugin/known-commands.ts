@@ -250,6 +250,7 @@ export namespace KnownCommands {
     mappings['toggleSuggestionDetails'] = ['toggleSuggestionDetails', CONVERT_VSCODE_TO_MONACO];
     mappings['toggleSuggestionFocus'] = ['toggleSuggestionFocus', CONVERT_VSCODE_TO_MONACO];
     mappings['acceptRenameInput'] = ['acceptRenameInput', CONVERT_VSCODE_TO_MONACO];
+    mappings['acceptRenameInputWithPreview'] = ['acceptRenameInputWithPreview', CONVERT_VSCODE_TO_MONACO];
     mappings['cancelRenameInput'] = ['cancelRenameInput', CONVERT_VSCODE_TO_MONACO];
     mappings['closeAccessibilityHelp'] = ['closeAccessibilityHelp', CONVERT_VSCODE_TO_MONACO];
     mappings['history.showNext'] = ['history.showNext', CONVERT_VSCODE_TO_MONACO];

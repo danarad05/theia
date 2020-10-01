@@ -168,6 +168,9 @@
       ],
       "@theia/timeline/*": [
         "packages/timeline/*"
+      ],
+      "@theia/bulk-edit/lib/*": [
+        "packages/bulk-edit/src/*"
       ]
     }
   }

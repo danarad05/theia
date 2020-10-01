@@ -50,7 +50,6 @@ export class RenameAdapter {
             if (!value) {
                 return undefined;
             }
-
             return Converter.fromWorkspaceEdit(value);
         }, error => {
             const rejectReason = RenameAdapter.asMessage(error);

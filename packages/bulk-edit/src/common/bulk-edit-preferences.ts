@@ -23,7 +23,7 @@ import {
     PreferenceSchema
 } from '@theia/core/lib/browser/preferences';
 
-export const bulkEditConfigSchema: PreferenceSchema = {
+export const BulkEditConfigSchema: PreferenceSchema = {
     'type': 'object',
     'properties': {
         'bulk-edit.maxChannelHistory': {
@@ -34,22 +34,22 @@ export const bulkEditConfigSchema: PreferenceSchema = {
     }
 };
 
-export interface bulkEditConfiguration {
+export interface BulkEditConfiguration {
     'bulk-edit.maxChannelHistory': number
 }
 
-export const bulkEditPreferences = Symbol('bulkEditPreferences');
-export type bulkEditPreferences = PreferenceProxy<bulkEditConfiguration>;
+export const BulkEditPreferences = Symbol('BulkEditPreferences');
+export type BulkEditPreferences = PreferenceProxy<BulkEditConfiguration>;
 
-export function createbulkEditPreferences(preferences: PreferenceService): bulkEditPreferences {
-    return createPreferenceProxy(preferences, bulkEditConfigSchema);
+export function createbulkEditPreferences(preferences: PreferenceService): BulkEditPreferences {
+    return createPreferenceProxy(preferences, BulkEditConfigSchema);
 }
 
 export function bindbulkEditPreferences(bind: interfaces.Bind): void {
-    bind(bulkEditPreferences).toDynamicValue(ctx => {
+    bind(BulkEditPreferences).toDynamicValue(ctx => {
         const preferences = ctx.container.get<PreferenceService>(PreferenceService);
         return createbulkEditPreferences(preferences);
     });
 
-    bind(PreferenceContribution).toConstantValue({ schema: bulkEditConfigSchema });
+    bind(PreferenceContribution).toConstantValue({ schema: BulkEditConfigSchema });
 }

@@ -501,15 +501,30 @@ export function fromWorkspaceEdit(value: theia.WorkspaceEdit, documents?: any): 
     const result: WorkspaceEditDto = {
         edits: []
     };
-    for (const entry of (value as types.WorkspaceEdit)._allEntries()) {
+    const entries = (value as types.WorkspaceEdit)._allEntries();
+    console.log('AAA fromWorkspaceEdit entries length' + entries.length);
+    for (const entry of entries) {
         const [uri, uriOrEdits] = entry;
         if (Array.isArray(uriOrEdits)) {
             // text edits
             const doc = documents ? documents.getDocument(uri.toString()) : undefined;
-            result.edits.push(<WorkspaceTextEditDto>{ resource: uri, modelVersionId: doc && doc.version, edit: uriOrEdits.map(fromTextEdit)[0] }); // todo
+            // ContextKeyExpr.equals('config.editor.suggest.insertMode', 'insert')
+            result.edits.push(<WorkspaceTextEditDto>{
+                resource: uri, modelVersionId: doc && doc.version, edit: uriOrEdits.map(fromTextEdit)[0]
+                // , metadata: {
+                //     needsConfirmation: true,
+                //     label: 'Workspace Edits'
+                // }
+            }); // todo
         } else {
             // resource edits
-            result.edits.push(<WorkspaceFileEditDto>{ oldUri: uri, newUri: uriOrEdits, options: entry[2] });
+            result.edits.push(<WorkspaceFileEditDto>{
+                oldUri: uri, newUri: uriOrEdits, options: entry[2]
+                // , metadata: {
+                //     needsConfirmation: true,
+                //     label: 'Workspace Edits'
+                // }
+            });
         }
     }
     return result;

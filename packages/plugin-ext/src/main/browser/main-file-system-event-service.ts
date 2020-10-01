@@ -25,6 +25,8 @@ import { MAIN_RPC_CONTEXT, FileSystemEvents } from '../../common/plugin-api-rpc'
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangeType } from '@theia/filesystem/lib/common/files';
+// import { PreferenceServiceImpl } from '@theia/core/src/browser';
+// import { WorkspaceService } from '@theia/workspace/lib/browser';
 
 export class MainFileSystemEventService {
 
@@ -36,6 +38,14 @@ export class MainFileSystemEventService {
     ) {
         const proxy = rpc.getProxy(MAIN_RPC_CONTEXT.ExtHostFileSystemEventService);
         const fileService = container.get(FileService);
+        // const preferenceService = container.get(PreferenceServiceImpl);
+        // console.log(preferenceService);
+        // const workspaceService = container.get(WorkspaceService);
+        // const rootUri = workspaceService.tryGetRoots()[0].resource;
+
+        // const needsConfirmation = preferenceService.get('editor.rename.enablePreview', undefined, rootUri.toString());
+        // console.log('AAA needsConfirmation', needsConfirmation);
+        // preferenceService.get('editor.rename.enablePreview');
 
         // file system events - (changes the editor and other make)
         const events: FileSystemEvents = {

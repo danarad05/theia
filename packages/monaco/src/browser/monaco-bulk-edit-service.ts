@@ -26,43 +26,12 @@ export class MonacoBulkEditService implements monaco.editor.IBulkEditService {
     private _previewHandler?: monaco.editor.IBulkEditPreviewHandler;
 
     async apply(workspaceEdit: monaco.languages.WorkspaceEdit, options?: monaco.editor.IBulkEditOptions): Promise<monaco.editor.IBulkEditResult & { success: boolean }> {
-        // return this.workspace.applyBulkEdit(edit);
         if (this._previewHandler && (options?.showPreview || workspaceEdit.edits.some(value => value.metadata?.needsConfirmation))) {
             workspaceEdit = await this._previewHandler(workspaceEdit, options);
+            return { ariaSummary: '', success: true };
+        } else {
+            return this.workspace.applyBulkEdit(workspaceEdit);
         }
-
-        return this.workspace.applyBulkEdit(workspaceEdit);
-
-        // let codeEditor = options?.editor;
-        // // try to find code editor
-        // if (!codeEditor) {
-        //     let candidate = this._editorService.activeTextEditorControl;
-        //     if (isCodeEditor(candidate)) {
-        //         codeEditor = candidate;
-        //     }
-        // }
-
-        // if (codeEditor && codeEditor.getOption(EditorOption.readOnly)) {
-        //     // If the code editor is readonly still allow bulk edits to be applied #68549
-        //     codeEditor = undefined;
-        // }
-
-        // const bulkEdit = this._instaService.createInstance(
-        //     BulkEdit,
-        //     options?.quotableLabel || options?.label,
-        //     codeEditor, options?.progress ?? Progress.None,
-        //     edits
-        // );
-
-        // try {
-        //     await bulkEdit.perform();
-        //     return { ariaSummary: bulkEdit.ariaMessage() };
-        // } catch (err) {
-        //     // console.log('apply FAILED');
-        //     // console.log(err);
-        //     this._logService.error(err);
-        //     throw err;
-        // }
     }
 
     hasPreviewHandler(): boolean {
