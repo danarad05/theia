@@ -136,7 +136,7 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeW
 
         if (widget) {
             this._workspaceEdit = workspaceEdit;
-            await widget.initModel(workspaceEdit.edits);
+            await widget.initModel(workspaceEdit);
         }
 
         console.log('AAA _previewEdit2', widget);

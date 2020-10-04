@@ -17,13 +17,15 @@
 import { injectable, inject, postConstruct } from 'inversify';
 import {
     TreeWidget, TreeProps, ContextMenuRenderer, TreeNode, TreeModel,
-    ApplicationShell, CompositeTreeNode, NodeProps // , NodeProps, Navigatable, ExpandableTreeNode, SelectableTreeNode
+    ApplicationShell, CompositeTreeNode, NodeProps
 } from '@theia/core/lib/browser';
 import * as React from 'react';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import { BulkEditPreferences } from '../../common/bulk-edit-preferences';
 import { BulkEditInfoNode, BulkEditNode } from './bulk-edit-tree';
 import { BulkEditTreeModel } from './bulk-edit-tree-model';
+import { FileResourceResolver } from '@theia/filesystem/lib/browser';
+import URI from '@theia/core/lib/common/uri';
 
 export const BULK_EDIT_TREE_WIDGET_ID = 'bulkedit';
 
@@ -37,6 +39,9 @@ export class BulkEditTreeWidget extends TreeWidget {
 
     @inject(ApplicationShell)
     protected readonly shell: ApplicationShell;
+
+    @inject(FileResourceResolver)
+    protected readonly fileResourceResolver: FileResourceResolver;
 
     constructor(
         @inject(TreeProps) readonly treeProps: TreeProps,
@@ -57,8 +62,8 @@ export class BulkEditTreeWidget extends TreeWidget {
         super.init();
     }
 
-    async initModel(edits: Array<monaco.languages.WorkspaceTextEdit | monaco.languages.WorkspaceFileEdit>): Promise<void> {
-        await this.model.initModel(edits);
+    async initModel(workspaceEdit: monaco.languages.WorkspaceEdit): Promise<void> {
+        await this.model.initModel(workspaceEdit, await this.getFileContentsMap(workspaceEdit));
     }
 
     storeState(): object {
@@ -107,7 +112,6 @@ export class BulkEditTreeWidget extends TreeWidget {
     }
 
     protected renderCaption(node: TreeNode, props: NodeProps): React.ReactNode {
-        console.log('AAA bulk-edit-tree-widget renderCaption', node, props);
         if (BulkEditInfoNode.is(node)) {
             return this.decorateBulkEditInfoNode(node);
         } else if (BulkEditNode.is(node)) {
@@ -127,16 +131,34 @@ export class BulkEditTreeWidget extends TreeWidget {
     // }
 
     protected decorateBulkEditNode(node: BulkEditNode): React.ReactNode {
-        const bulkEdit = node.bulkEdit;
-        return <div
-            className='bulkEditNode'
-            title={`${bulkEdit.edit.text} (${bulkEdit.edit.range.startLineNumber}, ${bulkEdit.edit.range.startColumn})`}>
-            <div className='message'>{bulkEdit.edit.text}
-                <span className='position'>
-                    {'[' + (bulkEdit.edit.range.startLineNumber) + ', ' + (bulkEdit.edit.range.startColumn) + ']'}
-                </span>
-            </div>
-        </div>;
+        if (node && node.bulkEdit && node.parent) {
+            const bulkEdit = node.bulkEdit;
+            const parent = node.parent as BulkEditInfoNode;
+
+            if (parent.fileContents) {
+                const lines = parent.fileContents.split('\n');
+                const startLineNum = +bulkEdit.edit.range.startLineNumber;
+                const startColumn = +bulkEdit.edit.range.startColumn;
+                // todo: handle if endline is not is same line ?
+                const endColumn = +bulkEdit.edit.range.endColumn;
+
+                if (lines.length > startLineNum) {
+                    const lineText = lines[startLineNum - 1];
+                    const beforeMatch = (startColumn > 26 ? '... ' : '') + lineText.substr(0, startColumn - 1).substr(-25);
+                    const replacedText = lineText.substring(startColumn - 1, endColumn - 1);
+                    const afterMatch = lineText.substr(startColumn - 1 + replacedText.length, 75);
+
+                    return <div className='bulkEditNode'>
+                        <div className='message'>
+                            {beforeMatch}
+                            <span className="replaced-text">{replacedText}</span>
+                            <span className="inserted-text">{bulkEdit.edit.text}</span>
+                            {afterMatch}
+                        </div>
+                    </div>;
+                }
+            }
+        }
     }
 
     protected decorateBulkEditInfoNode(node: BulkEditInfoNode): React.ReactNode {
@@ -152,42 +174,38 @@ export class BulkEditTreeWidget extends TreeWidget {
         </div>;
     }
 
-    // protected renderResultLineNode(node: SearchInWorkspaceResultLineNode): React.ReactNode {
-    //     let before;
-    //     let after;
-    //     let title;
-    //     if (typeof node.lineText === 'string') {
-    //         const prefix = node.character > 26 ? '... ' : '';
-    //         before = prefix + node.lineText.substr(0, node.character - 1).substr(-25);
-    //         after = node.lineText.substr(node.character - 1 + node.length, 75);
-    //         title = node.lineText.trim();
-    //     } else {
-    //         before = node.lineText.text.substr(0, node.lineText.character);
-    //         after = node.lineText.text.substr(node.lineText.character + node.length);
-    //         title = node.lineText.text.trim();
+    private async getFileContentsMap(workspaceEdit: monaco.languages.WorkspaceEdit): Promise<Map<string, string>> {
+        const fileContentMap = new Map<string, string>();
+
+        if (workspaceEdit && workspaceEdit.edits) {
+            let fileUri;
+            let resource;
+            for (const element of workspaceEdit.edits) {
+                if (element) {
+                    const filePath = (('newUri' in element) && element.newUri && element.newUri.path) ? element.newUri.path :
+                        (('resource' in element) && element.resource && element.resource.path ? element.resource.path : undefined);
+
+                    if (filePath) {
+                        fileUri = new URI(filePath).withScheme('file');
+                        resource = await this.fileResourceResolver.resolve(fileUri);
+                        fileContentMap.set(filePath, await resource.readContents());
+                    }
+                }
+            }
+        }
+        return fileContentMap;
+    }
+
+    // export class ProblemMarkerRemoveButton extends React.Component<{ model: ProblemTreeModel, node: TreeNode }> {
+
+    //     render(): React.ReactNode {
+    //         return <span className='remove-node' onClick={this.remove}></span>;
     //     }
-    //     return <div className={`resultLine noWrapInfo ${node.selected ? 'selected' : ''}`} title={title}>
-    //         {this.searchInWorkspacePreferences['search.lineNumbers'] && <span className='theia-siw-lineNumber'>{node.line}</span>}
-    //         <span>
-    //             {before}
-    //         </span>
-    //         {this.renderMatchLinePart(node)}
-    //         <span>
-    //             {after}
-    //         </span>
-    //     </div>;
+
+    //     protected readonly remove = (e: React.MouseEvent<HTMLElement>) => this.doRemove(e);
+    //     protected doRemove(e: React.MouseEvent<HTMLElement>): void {
+    //         this.props.model.removeNode(this.props.node);
+    //         e.stopPropagation();
+    //     }
     // }
 }
-
-// export class ProblemMarkerRemoveButton extends React.Component<{ model: ProblemTreeModel, node: TreeNode }> {
-
-//     render(): React.ReactNode {
-//         return <span className='remove-node' onClick={this.remove}></span>;
-//     }
-
-//     protected readonly remove = (e: React.MouseEvent<HTMLElement>) => this.doRemove(e);
-//     protected doRemove(e: React.MouseEvent<HTMLElement>): void {
-//         this.props.model.removeNode(this.props.node);
-//         e.stopPropagation();
-//     }
-// }

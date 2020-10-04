@@ -22,81 +22,50 @@ import { BulkEditNodeSelection } from './bulk-edit-selection';
 
 @injectable()
 export class BulkEditTree extends TreeImpl {
-    constructor(
-    ) {
-        super();
+    // constructor(
+    // ) {
+    //     super();
+    //     // this.root = <CompositeTreeNode>{
+    //     //     visible: false,
+    //     //     id: 'theia-bulk-edit-tree-widget',
+    //     //     name: 'BulkEditTree',
+    //     //     children: [],
+    //     //     parent: undefined
+    //     // };
+    // }
 
-        // this.root = <CompositeTreeNode>{
-        //     visible: false,
-        //     id: 'theia-bulk-edit-tree-widget',
-        //     name: 'BulkEditTree',
-        //     children: [],
-        //     parent: undefined
-        // };
-    }
-
-    public async setBulkEdits(edits: Array<monaco.languages.WorkspaceTextEdit | monaco.languages.WorkspaceFileEdit>): Promise<void> {
-        const rootNode = <CompositeTreeNode>{
+    public async setBulkEdits(workspaceEdit: monaco.languages.WorkspaceEdit, fileContents: Map<string, string>): Promise<void> {
+        this.root = <CompositeTreeNode>{
             visible: false,
             id: 'theia-bulk-edit-tree-widget',
             name: 'BulkEditTree',
-            children: this.getBulkEditInfoNodes(edits),
+            children: this.getBulkEditInfoNodes(workspaceEdit, fileContents),
             parent: undefined
         };
-        this.root = rootNode;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    protected getBulkEditInfoNodes(bulkEdits: any[]): BulkEditInfoNode[] {
-        const bulkEditInfos = bulkEdits.map(edit => {
-            if (edit && edit.resource && edit.resource.path) {
-                return edit.resource.path;
+    protected getBulkEditInfoNodes(workspaceEdit: monaco.languages.WorkspaceEdit, fileContentsMap: Map<string, string>): BulkEditInfoNode[] {
+        let bulkEditInfos: BulkEditInfoNode[] = [];
+        if (workspaceEdit.edits) {
+            bulkEditInfos = workspaceEdit.edits
+                .map(edit =>
+                    (edit && ('resource' in edit) && edit.resource && edit.resource.path) ? edit.resource.path :
+                        ((edit && ('newUri' in edit) && edit.newUri && edit.newUri.path) ? edit.newUri.path : undefined))
+                .filter((path, index, arr) => path && arr.indexOf(path) === index)
+                .map((path: string) => this.createBulkEditInfo(path, new URI(path), fileContentsMap.get(path)))
+                .filter(Boolean);
+
+            if (bulkEditInfos.length > 0) {
+                bulkEditInfos.forEach(editInfo => {
+                    editInfo.children = workspaceEdit.edits.filter(edit => ((('resource' in edit) && edit.resource.path === editInfo.id)) ||
+                        (('newUri' in edit) && edit.newUri && edit.newUri.path === editInfo.id))
+                        .map((edit, index) => this.createBulkEditNode(edit, index, editInfo));
+                });
             }
-        }).filter((path, index, arr) => arr.indexOf(path) === index)
-            .map(path => this.createBulkEditInfo(path, new URI(path)));
-
-        bulkEditInfos.forEach(editInfo => {
-            editInfo.children = bulkEdits.filter(edit => edit.resource.path === editInfo.id)
-                .map((edit, index) => this.createBulkEditNode(edit, index, editInfo));
-        });
-
+        }
         return bulkEditInfos;
     }
-    // public async refreshBulkEditInfo(uri: URI): Promise<void> {
-    //     // const id = uri.toString();
-    //     // const existing = this.getNode(id);
-    //     // const markers = []; // this.bulkEditService.findBulkEdits({ uri });
-    //     // if (markers.length <= 0) {
-    //     //     if (BulkEditInfoNode.is(existing)) {
-    //     //         CompositeTreeNode.removeChild(existing.parent, existing);
-    //     //         this.removeNode(existing);
-    //     //         this.fireChanged();
-    //     //     }
-    //     //     return;
-    //     // }
-    //     // const node = BulkEditInfoNode.is(existing) ? existing : this.createBulkEditInfo(id, uri);
-    //     // CompositeTreeNode.addChild(node.parent, node);
-    //     // // const children = this.getBulkEditNodes(node, markers);
-    //     // // node.numberOfBulkEdits = markers.length;
-    //     // this.setChildren(node, children);
-    // }
-
-    // protected async resolveChildren(parent: CompositeTreeNode): Promise<TreeNode[]> {
-    //     if (CompositeTreeNode.is(parent)) {
-    //         const nodes: BulkEditInfoNode[] = [];
-    //         // for (const id of this.bulkEditService.getUris()) {
-    //         //     const uri = new URI(id);
-    //         //     const existing = this.getNode(id);
-    //         //     // const markers = this.bulkEditService.findBulkEdits({ uri });
-    //         //     // const node = BulkEditInfoNode.is(existing) ? existing : this.createBulkEditInfo(id, uri);
-    //         //     // node.children = this.getBulkEditNodes(node, markers);
-    //         //     // node.numberOfBulkEdits = node.children.length;
-    //         //     // nodes.push(node);
-    //         // }
-    //         return nodes;
-    //     }
-    //     return super.resolveChildren(parent);
-    // }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     protected getBulkEditNodes(parent: BulkEditInfoNode, bulkEdits: any[]): BulkEditNode[] {
@@ -122,15 +91,15 @@ export class BulkEditTree extends TreeImpl {
         };
     }
 
-    private createBulkEditInfo(id: string, uri: URI): BulkEditInfoNode {
+    private createBulkEditInfo(id: string, uri: URI, fileContents: string | undefined): BulkEditInfoNode {
         return {
-            children: [],
-            expanded: true,
-            uri,
             id,
-            parent: this.root as BulkEditInfoNode,
+            uri,
+            expanded: true,
             selected: false,
-            numberOfBulkEdits: 0
+            parent: this.root as BulkEditInfoNode,
+            fileContents,
+            children: []
         };
     }
 }
@@ -148,57 +117,10 @@ export namespace BulkEditNode {
 
 export interface BulkEditInfoNode extends UriSelection, SelectableTreeNode, ExpandableTreeNode {
     parent: CompositeTreeNode;
-    numberOfBulkEdits: number;
+    fileContents?: string;
 }
 export namespace BulkEditInfoNode {
     export function is(node: Object | undefined): node is BulkEditInfoNode {
-        return ExpandableTreeNode.is(node) && UriSelection.is(node) && 'numberOfBulkEdits' in node;
+        return ExpandableTreeNode.is(node) && UriSelection.is(node) && 'fileContents' in node;
     }
-}
-
-export interface SearchInWorkspaceResult {
-    /**
-     * The string uri to the root folder that the search was performed.
-     */
-    root: string;
-
-    /**
-     * The string uri to the file containing the result.
-     */
-    fileUri: string;
-
-    /**
-     * matches found in the file
-     */
-    matches: SearchMatch[];
-}
-
-export interface SearchMatch {
-    /**
-     * The (1-based) line number of the result.
-     */
-    line: number;
-
-    /**
-     * The (1-based) character number in the result line.  For UTF-8 files,
-     * one multi-byte character counts as one character.
-     */
-    character: number;
-
-    /**
-     * The length of the match, in characters.  For UTF-8 files, one
-     * multi-byte character counts as one character.
-     */
-    length: number;
-
-    /**
-     * The text of the line containing the result.
-     */
-    lineText: string | LinePreview;
-
-}
-
-export interface LinePreview {
-    text: string;
-    character: number;
 }

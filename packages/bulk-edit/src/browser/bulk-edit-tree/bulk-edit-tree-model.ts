@@ -45,7 +45,7 @@ export class BulkEditTreeModel extends TreeModelImpl {
         }
     }
 
-    async initModel(edits: Array<monaco.languages.WorkspaceTextEdit | monaco.languages.WorkspaceFileEdit>): Promise<void> {
-        this.tree.setBulkEdits(edits);
+    async initModel(workspaceEdit: monaco.languages.WorkspaceEdit, fileContents: Map<string, string>): Promise<void> {
+        this.tree.setBulkEdits(workspaceEdit, fileContents);
     }
 }

@@ -81,6 +81,16 @@
     text-overflow: ellipsis;
 }
 
+.theia-bulk-edit-container .bulkEditNode .message .replaced-text {
+    text-decoration: line-through;
+    background-color: #4B1818;
+}
+
+.theia-bulk-edit-container .bulkEditNode .message .inserted-text {
+    text-decoration: line-through;
+    background-color: #373D29;
+}
+
 .problem-tab-icon::before {
     content: "\f06a"
 }
