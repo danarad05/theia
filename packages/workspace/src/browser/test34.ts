@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/tslint/config */
-import { test2 } from './test12d';
+import { test2 } from './test12dd';
 
 export class test3 {
     A(): void {

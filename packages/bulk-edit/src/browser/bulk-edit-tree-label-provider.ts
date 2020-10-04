@@ -57,10 +57,6 @@ export class BulkEditTreeLabelProvider implements LabelProviderContribution {
         if (rootUri && rootUri.toString() !== node.uri.parent.toString()) {
             description.push(this.labelProvider.getLongName(node.uri.parent));
         }
-        // Get the full path of a resource which does not exist in the given workspace.
-        if (!rootUri) {
-            description.push(this.labelProvider.getLongName(node.uri.parent.withScheme('markers')));
-        }
         return description.join(' ● ');
     }
 

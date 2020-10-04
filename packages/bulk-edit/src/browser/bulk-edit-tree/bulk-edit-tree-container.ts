@@ -20,7 +20,7 @@ import { BulkEditTree } from './bulk-edit-tree';
 import { BulkEditTreeModel } from './bulk-edit-tree-model';
 import { TreeWidget, TreeProps, defaultTreeProps, TreeModel, createTreeContainer, TreeModelImpl, TreeImpl, Tree } from '@theia/core/lib/browser';
 
-export function createBEContainer(parent: interfaces.Container): Container {
+export function createBulkEditContainer(parent: interfaces.Container): Container {
     const child = createTreeContainer(parent);
 
     child.unbind(TreeImpl);
@@ -39,5 +39,5 @@ export function createBEContainer(parent: interfaces.Container): Container {
 }
 
 export function createBulkEditTreeWidget(parent: interfaces.Container): BulkEditTreeWidget {
-    return createBEContainer(parent).get(BulkEditTreeWidget);
+    return createBulkEditContainer(parent).get(BulkEditTreeWidget);
 }

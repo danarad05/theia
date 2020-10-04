@@ -35,10 +35,6 @@ export class BulkEditTreeModel extends TreeModelImpl {
         return undefined;
     }
 
-    /**
-     * Reveal the corresponding node at the marker.
-     * @param node {TreeNode} the tree node.
-     */
     revealNode(node: TreeNode): void {
         if (BulkEditNode.is(node)) {
             open(this.openerService, node.uri, undefined);

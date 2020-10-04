@@ -14,36 +14,21 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { injectable, inject } from 'inversify';
-import URI from '@theia/core/lib/common/uri';
+import { injectable } from 'inversify';
 import { Widget } from '@theia/core/lib/browser/widgets/widget';
-import { MaybePromise } from '@theia/core/lib/common/types';
-import { OpenerOptions, OpenerService, FrontendApplication, FrontendApplicationContribution } from '@theia/core/lib/browser';
-import { CommandRegistry, CommandService, MenuModelRegistry, MenuPath } from '@theia/core/lib/common';
+import { CommandRegistry } from '@theia/core/lib/common';
 import { AbstractViewContribution } from '@theia/core/lib/browser/shell/view-contribution';
 import { BulkEditCommands } from './bulk-edit-commands';
 import { MonacoBulkEditService } from '@theia/monaco/lib/browser/monaco-bulk-edit-service';
 import { TabBarToolbarContribution, TabBarToolbarRegistry } from '@theia/core/src/browser/shell/tab-bar-toolbar';
 import { BulkEditTreeWidget, BULK_EDIT_TREE_WIDGET_ID } from './bulk-edit-tree';
 
-export const MENU_PATH: MenuPath = ['output_context_menu'];
-export const TEXT_EDIT_GROUP = [...MENU_PATH, '0_text_edit_group'];
-
 @injectable()
-export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeWidget> implements FrontendApplicationContribution, TabBarToolbarContribution {
-    _workspaceEdit: monaco.languages.WorkspaceEdit;
-
-    @inject(CommandService)
-    protected readonly commandService: CommandService;
-
-    @inject(OpenerService)
-    protected readonly openerService: OpenerService;
-
+export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeWidget> implements TabBarToolbarContribution {
+    private workspaceEdit: monaco.languages.WorkspaceEdit;
     readonly id: string = `${BULK_EDIT_TREE_WIDGET_ID}-opener`;
 
-    constructor(
-        private readonly bulkEditService: MonacoBulkEditService,
-    ) {
+    constructor(private readonly bulkEditService: MonacoBulkEditService) {
         super({
             widgetId: BULK_EDIT_TREE_WIDGET_ID,
             widgetName: 'Refactor Preview',
@@ -56,41 +41,18 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeW
         this.bulkEditService.setPreviewHandler((edits: monaco.languages.WorkspaceEdit) => this._previewEdit(edits));
     }
 
-    async initializeLayout(app: FrontendApplication): Promise<void> {
-        console.log('AAA BulkEditContribution initializeLayout');
-        await this.openView();
-    }
-
-    // @postConstruct()
-    // protected init(): void {
-    // }
-
     registerCommands(registry: CommandRegistry): void {
         super.registerCommands(registry);
         registry.registerCommand(BulkEditCommands.APPLY, {
             isEnabled: widget => this.withWidget(widget, () => true),
             isVisible: widget => this.withWidget(widget, () => true),
-            execute: widget => this.withWidget(widget, () => this.applyBulkEdits()) // this.collapseAllProblems()
+            execute: widget => this.withWidget(widget, () => this.applyBulkEdits())
         });
         registry.registerCommand(BulkEditCommands.DISCARD, {
             isEnabled: widget => this.withWidget(widget, () => true),
             isVisible: widget => this.withWidget(widget, () => true),
-            execute: widget => this.withWidget(widget, () => true) // this.collapseAllProblems()
+            execute: widget => this.withWidget(widget, () => this.discardBulkEdits())
         });
-    }
-
-    registerMenus(registry: MenuModelRegistry): void {
-        console.log('AAA registerMenus1');
-        super.registerMenus(registry);
-        registry.registerMenuAction(TEXT_EDIT_GROUP, {
-            commandId: 'aaaa',
-            label: 'AAAAAVVV'
-        });
-        registry.registerMenuAction(TEXT_EDIT_GROUP, {
-            commandId: 'asdads',
-            label: 'Clear BulkEdit'
-        });
-        console.log('AAA registerMenus2');
     }
 
     async registerToolbarItems(toolbarRegistry: TabBarToolbarRegistry): Promise<void> {
@@ -108,19 +70,18 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeW
         });
     }
 
-    canHandle(uri: URI): MaybePromise<number> {
-        return 200; // BulkEditUri.is(uri) ? 200 : 0;
-    }
-
-    async open(uri?: URI, options?: OpenerOptions): Promise<BulkEditTreeWidget> {
-        const widget = await this.openView({ activate: true });
-        return widget;
-    }
-
     applyBulkEdits(): void {
-        if (this._workspaceEdit) {
-            this.bulkEditService.apply(this._workspaceEdit);
+        if (this.workspaceEdit) {
+            this.bulkEditService.apply(this.workspaceEdit);
+            this.closeView();
         }
+    }
+
+    discardBulkEdits(): void {
+        if (this.workspaceEdit) {
+            this.workspaceEdit.edits = [];
+        }
+        this.closeView();
     }
 
     protected withWidget<T>(widget: Widget | undefined = this.tryGetWidget(), cb: (bulkEdit: BulkEditTreeWidget) => T): T | false {
@@ -131,15 +92,13 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeW
     }
 
     private async _previewEdit(workspaceEdit: monaco.languages.WorkspaceEdit): Promise<monaco.languages.WorkspaceEdit> {
-        console.log('AAA _previewEdit1', workspaceEdit);
-        const widget = await this.open();
+        const widget = await this.openView({ activate: true });
 
         if (widget) {
-            this._workspaceEdit = workspaceEdit;
+            this.workspaceEdit = workspaceEdit;
             await widget.initModel(workspaceEdit);
         }
 
-        console.log('AAA _previewEdit2', widget);
         return workspaceEdit;
     }
 }

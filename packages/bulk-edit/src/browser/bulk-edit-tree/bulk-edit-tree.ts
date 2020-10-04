@@ -1,5 +1,5 @@
 /********************************************************************************
- * Copyright (C) 2018 TypeFox and others.
+ * Copyright (c) 2020 SAP SE or an SAP affiliate company and others.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0 which is available at
@@ -16,24 +16,12 @@
 
 import { injectable } from 'inversify';
 import { TreeNode, CompositeTreeNode, SelectableTreeNode, ExpandableTreeNode, TreeImpl } from '@theia/core/lib/browser';
-import URI from '@theia/core/lib/common/uri';
 import { UriSelection } from '@theia/core/lib/common/selection';
 import { BulkEditNodeSelection } from './bulk-edit-selection';
+import URI from '@theia/core/lib/common/uri';
 
 @injectable()
 export class BulkEditTree extends TreeImpl {
-    // constructor(
-    // ) {
-    //     super();
-    //     // this.root = <CompositeTreeNode>{
-    //     //     visible: false,
-    //     //     id: 'theia-bulk-edit-tree-widget',
-    //     //     name: 'BulkEditTree',
-    //     //     children: [],
-    //     //     parent: undefined
-    //     // };
-    // }
-
     public async setBulkEdits(workspaceEdit: monaco.languages.WorkspaceEdit, fileContents: Map<string, string>): Promise<void> {
         this.root = <CompositeTreeNode>{
             visible: false,

@@ -14,14 +14,13 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { injectable, inject, postConstruct } from 'inversify';
+import { injectable, inject } from 'inversify';
 import {
     TreeWidget, TreeProps, ContextMenuRenderer, TreeNode, TreeModel,
-    ApplicationShell, CompositeTreeNode, NodeProps
+    CompositeTreeNode, NodeProps
 } from '@theia/core/lib/browser';
 import * as React from 'react';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
-import { BulkEditPreferences } from '../../common/bulk-edit-preferences';
 import { BulkEditInfoNode, BulkEditNode } from './bulk-edit-tree';
 import { BulkEditTreeModel } from './bulk-edit-tree-model';
 import { FileResourceResolver } from '@theia/filesystem/lib/browser';
@@ -33,12 +32,6 @@ export const BULK_EDIT_TREE_WIDGET_ID = 'bulkedit';
 export class BulkEditTreeWidget extends TreeWidget {
 
     protected readonly toDisposeOnCurrentWidgetChanged = new DisposableCollection();
-
-    @inject(BulkEditPreferences)
-    protected readonly preferences: BulkEditPreferences;
-
-    @inject(ApplicationShell)
-    protected readonly shell: ApplicationShell;
 
     @inject(FileResourceResolver)
     protected readonly fileResourceResolver: FileResourceResolver;
@@ -57,28 +50,8 @@ export class BulkEditTreeWidget extends TreeWidget {
         this.addClass('theia-bulk-edit-container');
     }
 
-    @postConstruct()
-    protected init(): void {
-        super.init();
-    }
-
     async initModel(workspaceEdit: monaco.languages.WorkspaceEdit): Promise<void> {
         await this.model.initModel(workspaceEdit, await this.getFileContentsMap(workspaceEdit));
-    }
-
-    storeState(): object {
-        // no-op
-        return {};
-    }
-    protected superStoreState(): object {
-        return super.storeState();
-    }
-    restoreState(state: object): void {
-        // no-op
-    }
-    protected superRestoreState(state: object): void {
-        super.restoreState(state);
-        return;
     }
 
     protected handleClickEvent(node: TreeNode | undefined, event: React.MouseEvent<HTMLElement>): void {
@@ -120,29 +93,18 @@ export class BulkEditTreeWidget extends TreeWidget {
         return 'caption';
     }
 
-    // protected renderTailDecorations(node: TreeNode, props: NodeProps): JSX.Element {
-    //     return <div className='row-button-container'>
-    //         {this.renderRemoveButton(node)}
-    //     </div>;
-    // }
-
-    // protected renderRemoveButton(node: TreeNode): React.ReactNode {
-    //     return <ProblemMarkerRemoveButton model={this.model} node={node} />;
-    // }
-
     protected decorateBulkEditNode(node: BulkEditNode): React.ReactNode {
-        if (node && node.bulkEdit && node.parent) {
+        if (this.isBulkEditNodeValid(node)) {
             const bulkEdit = node.bulkEdit;
             const parent = node.parent as BulkEditInfoNode;
 
-            if (parent.fileContents) {
+            if (parent && parent.fileContents) {
                 const lines = parent.fileContents.split('\n');
                 const startLineNum = +bulkEdit.edit.range.startLineNumber;
-                const startColumn = +bulkEdit.edit.range.startColumn;
-                // todo: handle if endline is not is same line ?
-                const endColumn = +bulkEdit.edit.range.endColumn;
 
                 if (lines.length > startLineNum) {
+                    const startColumn = +bulkEdit.edit.range.startColumn;
+                    const endColumn = +bulkEdit.edit.range.endColumn;
                     const lineText = lines[startLineNum - 1];
                     const beforeMatch = (startColumn > 26 ? '... ' : '') + lineText.substr(0, startColumn - 1).substr(-25);
                     const replacedText = lineText.substring(startColumn - 1, endColumn - 1);
@@ -196,16 +158,7 @@ export class BulkEditTreeWidget extends TreeWidget {
         return fileContentMap;
     }
 
-    // export class ProblemMarkerRemoveButton extends React.Component<{ model: ProblemTreeModel, node: TreeNode }> {
-
-    //     render(): React.ReactNode {
-    //         return <span className='remove-node' onClick={this.remove}></span>;
-    //     }
-
-    //     protected readonly remove = (e: React.MouseEvent<HTMLElement>) => this.doRemove(e);
-    //     protected doRemove(e: React.MouseEvent<HTMLElement>): void {
-    //         this.props.model.removeNode(this.props.node);
-    //         e.stopPropagation();
-    //     }
-    // }
+    private isBulkEditNodeValid(node: BulkEditNode): boolean {
+        return node && node.parent && node.bulkEdit && node.bulkEdit.edit && node.bulkEdit.edit.range && node.bulkEdit.edit.text;
+    }
 }
