@@ -16,7 +16,6 @@
 import { ContainerModule } from 'inversify';
 import { WidgetFactory } from '@theia/core/lib/browser/widget-manager';
 import { BulkEditTreeWidget, BULK_EDIT_TREE_WIDGET_ID, createBulkEditTreeWidget } from './bulk-edit-tree';
-import { bindbulkEditPreferences } from '../common/bulk-edit-preferences';
 import { FrontendApplicationContribution, LabelProviderContribution, } from '@theia/core/lib/browser';
 import { bindViewContribution } from '@theia/core/lib/browser';
 import { BulkEditContribution } from './bulk-edit-contribution';
@@ -25,7 +24,6 @@ import { BulkEditTreeLabelProvider } from './bulk-edit-tree-label-provider';
 import '../../src/browser/style/bulk-edit.css';
 
 export default new ContainerModule(bind => {
-    bindbulkEditPreferences(bind);
     bind(BulkEditTreeWidget).toDynamicValue(ctx =>
         createBulkEditTreeWidget(ctx.container)
     );

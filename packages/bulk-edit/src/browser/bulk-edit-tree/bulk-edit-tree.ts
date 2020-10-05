@@ -17,23 +17,22 @@
 import { injectable } from 'inversify';
 import { TreeNode, CompositeTreeNode, SelectableTreeNode, ExpandableTreeNode, TreeImpl } from '@theia/core/lib/browser';
 import { UriSelection } from '@theia/core/lib/common/selection';
-import { BulkEditNodeSelection } from './bulk-edit-selection';
+import { BulkEditNodeSelection } from './bulk-edit-node-selection';
 import URI from '@theia/core/lib/common/uri';
 
 @injectable()
 export class BulkEditTree extends TreeImpl {
-    public async setBulkEdits(workspaceEdit: monaco.languages.WorkspaceEdit, fileContents: Map<string, string>): Promise<void> {
+    public async initTree(workspaceEdit: monaco.languages.WorkspaceEdit, fileContents: Map<string, string>): Promise<void> {
         this.root = <CompositeTreeNode>{
             visible: false,
             id: 'theia-bulk-edit-tree-widget',
             name: 'BulkEditTree',
-            children: this.getBulkEditInfoNodes(workspaceEdit, fileContents),
+            children: this.getChildren(workspaceEdit, fileContents),
             parent: undefined
         };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    protected getBulkEditInfoNodes(workspaceEdit: monaco.languages.WorkspaceEdit, fileContentsMap: Map<string, string>): BulkEditInfoNode[] {
+    private getChildren(workspaceEdit: monaco.languages.WorkspaceEdit, fileContentsMap: Map<string, string>): BulkEditInfoNode[] {
         let bulkEditInfos: BulkEditInfoNode[] = [];
         if (workspaceEdit.edits) {
             bulkEditInfos = workspaceEdit.edits
@@ -55,14 +54,7 @@ export class BulkEditTree extends TreeImpl {
         return bulkEditInfos;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    protected getBulkEditNodes(parent: BulkEditInfoNode, bulkEdits: any[]): BulkEditNode[] {
-        return bulkEdits.map((edit, index) =>
-            this.createBulkEditNode(edit, index, parent)
-        );
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    protected createBulkEditNode(bulkEdit: any, index: number, parent: BulkEditInfoNode): BulkEditNode {
+    private createBulkEditNode(bulkEdit: monaco.languages.WorkspaceTextEdit | monaco.languages.WorkspaceFileEdit, index: number, parent: BulkEditInfoNode): BulkEditNode {
         const id = parent.id + '_' + index;
         const existing = this.getNode(id);
         if (BulkEditNode.is(existing)) {
@@ -94,8 +86,7 @@ export class BulkEditTree extends TreeImpl {
 
 export interface BulkEditNode extends UriSelection, SelectableTreeNode {
     parent: CompositeTreeNode;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    bulkEdit: any;
+    bulkEdit: monaco.languages.WorkspaceTextEdit | monaco.languages.WorkspaceFileEdit;
 }
 export namespace BulkEditNode {
     export function is(node: TreeNode | undefined): node is BulkEditNode {

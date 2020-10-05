@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/tslint/config */
-import { test2 } from './test12dd';
+import { test25 } from './test12dd';
 
-export class test3 {
+export class test5 {
     A(): void {
-        const r = new test2();
+        const r = new test25();
         r.f1();
     }
 

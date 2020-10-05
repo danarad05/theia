@@ -18,8 +18,7 @@ import { SelectionService } from '@theia/core/lib/common/selection-service';
 import { SelectionCommandHandler } from '@theia/core/lib/common/selection-command-handler';
 
 export interface BulkEditNodeSelection {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    bulkEdit: any;
+    bulkEdit: monaco.languages.WorkspaceTextEdit | monaco.languages.WorkspaceFileEdit;
 }
 export namespace BulkEditNodeSelection {
     export function is(arg: Object | undefined): arg is BulkEditNodeSelection {

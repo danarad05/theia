@@ -94,7 +94,7 @@ export class BulkEditTreeWidget extends TreeWidget {
     }
 
     protected decorateBulkEditNode(node: BulkEditNode): React.ReactNode {
-        if (this.isBulkEditNodeValid(node)) {
+        if (node && node.parent && node.bulkEdit && ('edit' in node.bulkEdit)) {
             const bulkEdit = node.bulkEdit;
             const parent = node.parent as BulkEditInfoNode;
 
@@ -127,7 +127,6 @@ export class BulkEditTreeWidget extends TreeWidget {
         const icon = this.toNodeIcon(node);
         const name = this.toNodeName(node);
         const description = this.toNodeDescription(node);
-        // Use a custom scheme so that we fallback to the `DefaultUriLabelProviderContribution`.
         const path = this.labelProvider.getLongName(node.uri.withScheme('bulkedit'));
         return <div title={path} className='bulkEditInfoNode'>
             {icon && <div className={icon + ' file-icon'}></div>}
@@ -156,9 +155,5 @@ export class BulkEditTreeWidget extends TreeWidget {
             }
         }
         return fileContentMap;
-    }
-
-    private isBulkEditNodeValid(node: BulkEditNode): boolean {
-        return node && node.parent && node.bulkEdit && node.bulkEdit.edit && node.bulkEdit.edit.range && node.bulkEdit.edit.text;
     }
 }

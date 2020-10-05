@@ -26,7 +26,6 @@ import { BulkEditTreeWidget, BULK_EDIT_TREE_WIDGET_ID } from './bulk-edit-tree';
 @injectable()
 export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeWidget> implements TabBarToolbarContribution {
     private workspaceEdit: monaco.languages.WorkspaceEdit;
-    readonly id: string = `${BULK_EDIT_TREE_WIDGET_ID}-opener`;
 
     constructor(private readonly bulkEditService: MonacoBulkEditService) {
         super({
@@ -34,9 +33,7 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeW
             widgetName: 'Refactor Preview',
             defaultWidgetOptions: {
                 area: 'bottom'
-            },
-            toggleCommandId: BulkEditCommands.TOGGLE_VIEW.id,
-            toggleKeybinding: 'CtrlCmd+Shift+U'
+            }
         });
         this.bulkEditService.setPreviewHandler((edits: monaco.languages.WorkspaceEdit) => this._previewEdit(edits));
     }
@@ -46,12 +43,12 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeW
         registry.registerCommand(BulkEditCommands.APPLY, {
             isEnabled: widget => this.withWidget(widget, () => true),
             isVisible: widget => this.withWidget(widget, () => true),
-            execute: widget => this.withWidget(widget, () => this.applyBulkEdits())
+            execute: widget => this.withWidget(widget, () => this.apply())
         });
         registry.registerCommand(BulkEditCommands.DISCARD, {
             isEnabled: widget => this.withWidget(widget, () => true),
             isVisible: widget => this.withWidget(widget, () => true),
-            execute: widget => this.withWidget(widget, () => this.discardBulkEdits())
+            execute: widget => this.withWidget(widget, () => this.discard())
         });
     }
 
@@ -70,20 +67,6 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeW
         });
     }
 
-    applyBulkEdits(): void {
-        if (this.workspaceEdit) {
-            this.bulkEditService.apply(this.workspaceEdit);
-            this.closeView();
-        }
-    }
-
-    discardBulkEdits(): void {
-        if (this.workspaceEdit) {
-            this.workspaceEdit.edits = [];
-        }
-        this.closeView();
-    }
-
     protected withWidget<T>(widget: Widget | undefined = this.tryGetWidget(), cb: (bulkEdit: BulkEditTreeWidget) => T): T | false {
         if (widget instanceof BulkEditTreeWidget) {
             return cb(widget);
@@ -100,5 +83,19 @@ export class BulkEditContribution extends AbstractViewContribution<BulkEditTreeW
         }
 
         return workspaceEdit;
+    }
+
+    private apply(): void {
+        if (this.workspaceEdit) {
+            this.bulkEditService.apply(this.workspaceEdit);
+        }
+        this.closeView();
+    }
+
+    private discard(): void {
+        if (this.workspaceEdit) {
+            this.workspaceEdit.edits = [];
+        }
+        this.closeView();
     }
 }

@@ -33,8 +33,8 @@ export function createBulkEditContainer(parent: interfaces.Container): Container
     child.unbind(TreeModelImpl);
     child.bind(BulkEditTreeModel).toSelf();
     child.rebind(TreeModel).toService(BulkEditTreeModel);
-
     child.rebind(TreeProps).toConstantValue(defaultTreeProps);
+
     return child;
 }
 

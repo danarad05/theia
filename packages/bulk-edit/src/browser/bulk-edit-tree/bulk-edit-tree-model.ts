@@ -16,7 +16,7 @@
 
 import { injectable, inject } from 'inversify';
 import { BulkEditNode, BulkEditTree } from './bulk-edit-tree';
-import { TreeModelImpl, OpenerService, open, TreeNode, OpenerOptions } from '@theia/core/lib/browser';
+import { TreeModelImpl, OpenerService, open, TreeNode } from '@theia/core/lib/browser';
 
 @injectable()
 export class BulkEditTreeModel extends TreeModelImpl {
@@ -31,17 +31,11 @@ export class BulkEditTreeModel extends TreeModelImpl {
         }
     }
 
-    protected getOpenerOptionsByMarker(node: BulkEditNode): OpenerOptions | undefined {
-        return undefined;
-    }
-
     revealNode(node: TreeNode): void {
-        if (BulkEditNode.is(node)) {
-            open(this.openerService, node.uri, undefined);
-        }
+        this.doOpenNode(node);
     }
 
     async initModel(workspaceEdit: monaco.languages.WorkspaceEdit, fileContents: Map<string, string>): Promise<void> {
-        this.tree.setBulkEdits(workspaceEdit, fileContents);
+        this.tree.initTree(workspaceEdit, fileContents);
     }
 }
