@@ -504,6 +504,7 @@ export function fromWorkspaceEdit(value: theia.WorkspaceEdit, documents?: any): 
     for (const entry of (value as types.WorkspaceEdit)._allEntries()) {
         const [uri, uriOrEdits] = entry;
         // test
+        // dddd
         if (Array.isArray(uriOrEdits)) {
             // text edits
             const doc = documents ? documents.getDocument(uri.toString()) : undefined;
