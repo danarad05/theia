@@ -19,7 +19,7 @@
 import * as React from 'react';
 import { LabelProvider } from '@theia/core/lib/browser';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { Emitter, Event, DisposableCollection, Disposable, MessageClient, MessageType, Mutable } from '@theia/core/lib/common';
+import { Emitter, Event, DisposableCollection, Disposable, MessageClient, MessageType, Mutable, ContributionProvider } from '@theia/core/lib/common';
 import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
 import { EditorManager } from '@theia/editor/lib/browser';
 import { CompositeTreeElement } from '@theia/core/lib/browser/source-tree';
@@ -39,6 +39,7 @@ import { SourceBreakpoint, ExceptionBreakpoint } from './breakpoint/breakpoint-m
 import { TerminalWidgetOptions, TerminalWidget } from '@theia/terminal/lib/browser/base/terminal-widget';
 import { DebugFunctionBreakpoint } from './model/debug-function-breakpoint';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { DebugPluginConfiguration, DebugPluginContribution, LaunchVSCodeArgument, LaunchVSCodeRequest, LaunchVSCodeResult } from './debug-plugin-contribution';
 
 export enum DebugState {
     Inactive,
@@ -49,7 +50,6 @@ export enum DebugState {
 
 // FIXME: make injectable to allow easily inject services
 export class DebugSession implements CompositeTreeElement {
-
     protected readonly onDidChangeEmitter = new Emitter<void>();
     readonly onDidChange: Event<void> = this.onDidChangeEmitter.event;
     protected fireDidChange(): void {
@@ -73,8 +73,12 @@ export class DebugSession implements CompositeTreeElement {
         protected readonly breakpoints: BreakpointManager,
         protected readonly labelProvider: LabelProvider,
         protected readonly messages: MessageClient,
-        protected readonly fileService: FileService) {
+        protected readonly fileService: FileService,
+        protected readonly debugPluginCP: ContributionProvider<DebugPluginContribution>
+    ) {
         this.connection.onRequest('runInTerminal', (request: DebugProtocol.RunInTerminalRequest) => this.runInTerminal(request));
+        this.connection.onRequest('launchVSCode', (request: LaunchVSCodeRequest) => this.launchVSCode(request));
+
         this.toDispose.pushAll([
             this.onDidChangeEmitter,
             this.onDidChangeBreakpointsEmitter,
@@ -115,9 +119,11 @@ export class DebugSession implements CompositeTreeElement {
         this.sources.set(uri, source);
         return source;
     }
+
     getSourceForUri(uri: URI): DebugSource | undefined {
         return this.sources.get(uri.toString());
     }
+
     async toSource(uri: URI): Promise<DebugSource> {
         const source = this.getSourceForUri(uri);
         if (source) {
@@ -149,9 +155,11 @@ export class DebugSession implements CompositeTreeElement {
     get threads(): IterableIterator<DebugThread> {
         return this._threads.values();
     }
+
     get threadCount(): number {
         return this._threads.size;
     }
+
     *getThreads(filter: (thread: DebugThread) => boolean): IterableIterator<DebugThread> {
         for (const thread of this.threads) {
             if (filter(thread)) {
@@ -159,9 +167,11 @@ export class DebugSession implements CompositeTreeElement {
             }
         }
     }
+
     get runningThreads(): IterableIterator<DebugThread> {
         return this.getThreads(thread => !thread.stopped);
     }
+
     get stoppedThreads(): IterableIterator<DebugThread> {
         return this.getThreads(thread => thread.stopped);
     }
@@ -238,6 +248,7 @@ export class DebugSession implements CompositeTreeElement {
         await this.initialize();
         await this.launchOrAttach();
     }
+
     protected async initialize(): Promise<void> {
         const response = await this.connection.sendRequest('initialize', {
             clientID: 'Theia',
@@ -253,13 +264,10 @@ export class DebugSession implements CompositeTreeElement {
         });
         this.updateCapabilities(response.body || {});
     }
+
     protected async launchOrAttach(): Promise<void> {
         try {
-            if (this.configuration.request === 'attach') {
-                await this.sendRequest('attach', this.configuration);
-            } else {
-                await this.sendRequest('launch', this.configuration);
-            }
+            await this.sendRequest((this.configuration.request === 'attach' ? 'attach' : 'launch'), this.configuration);
         } catch (reason) {
             this.fireExited(reason);
             await this.messages.showMessage({
@@ -272,6 +280,7 @@ export class DebugSession implements CompositeTreeElement {
             throw reason;
         }
     }
+
     protected initialized = false;
     protected async configure(): Promise<void> {
         if (this.capabilities.exceptionBreakpointFilters) {
@@ -298,10 +307,14 @@ export class DebugSession implements CompositeTreeElement {
             if (!await this.exited(1000)) {
                 await this.disconnect(restart);
             }
+        } else if (this.configuration.type === 'pwa-extensionHost') {
+            await this.stopExtensionHost(true);
+            this.fireExited();
         } else {
             await this.disconnect(restart);
         }
     }
+
     protected async disconnect(restart?: boolean): Promise<void> {
         try {
             await this.sendRequest('disconnect', { restart });
@@ -315,9 +328,16 @@ export class DebugSession implements CompositeTreeElement {
         }
     }
 
+    protected async stopExtensionHost(checkRunning: boolean): Promise<void> {
+        for (const contrib of this.debugPluginCP.getContributions()) {
+            await contrib.stop(checkRunning);
+        }
+    }
+
     protected fireExited(reason?: Error): void {
         this.connection['fire']('exited', { reason });
     }
+
     protected exited(timeout: number): Promise<boolean> {
         return new Promise<boolean>(resolve => {
             const listener = this.on('exited', () => {
@@ -334,6 +354,9 @@ export class DebugSession implements CompositeTreeElement {
     async restart(): Promise<boolean> {
         if (this.capabilities.supportsRestartRequest) {
             this.terminated = false;
+            if (this.configuration.type === 'pwa-extensionHost') {
+                await this.stopExtensionHost(true);
+            }
             await this.sendRequest('restart', {});
             return true;
         }
@@ -375,6 +398,20 @@ export class DebugSession implements CompositeTreeElement {
         return { processId: await processId };
     }
 
+    protected async launchVSCode({ arguments: { args } }: LaunchVSCodeRequest): Promise<LaunchVSCodeResult> {
+        let result = {};
+        for (const contrib of this.debugPluginCP.getContributions()) {
+            const instanceURI = await contrib.debug(this.getDebugPluginConfig(args));
+            if (instanceURI) {
+                const instanceURL = new URL(instanceURI);
+                if (instanceURL.port) {
+                    result = Object.assign(result, { rendererDebugPort: instanceURL.port });
+                }
+            }
+        }
+        return result;
+    }
+
     protected async doCreateTerminal(options: TerminalWidgetOptions): Promise<TerminalWidget> {
         let terminal = undefined;
         for (const t of this.terminalServer.all) {
@@ -398,6 +435,7 @@ export class DebugSession implements CompositeTreeElement {
         }
         this.updateCurrentThread();
     }
+
     protected clearThread(threadId: number): void {
         const thread = this._threads.get(threadId);
         if (thread) {
@@ -408,6 +446,7 @@ export class DebugSession implements CompositeTreeElement {
 
     protected readonly scheduleUpdateThreads = debounce(() => this.updateThreads(undefined), 100);
     protected pendingThreads = Promise.resolve();
+
     updateThreads(stoppedDetails: StoppedDetails | undefined): Promise<void> {
         return this.pendingThreads = this.pendingThreads.then(async () => {
             try {
@@ -420,6 +459,7 @@ export class DebugSession implements CompositeTreeElement {
             }
         });
     }
+
     protected doUpdateThreads(threads: DebugProtocol.Thread[], stoppedDetails?: StoppedDetails): void {
         const existing = this._threads;
         this._threads = new Map();
@@ -515,7 +555,9 @@ export class DebugSession implements CompositeTreeElement {
             this.fireDidChangeBreakpoints(new URI(uri));
         }
     }
+
     protected updatingBreakpoints = false;
+
     protected updateBreakpoint(body: DebugProtocol.BreakpointEvent['body']): void {
         this.updatingBreakpoints = true;
         try {
@@ -687,6 +729,7 @@ export class DebugSession implements CompositeTreeElement {
         const distinct = this.dedupSourceBreakpoints(breakpoints);
         this.setBreakpoints(uri, distinct);
     }
+
     protected dedupSourceBreakpoints(all: DebugSourceBreakpoint[]): DebugSourceBreakpoint[] {
         const positions = new Map<string, DebugSourceBreakpoint>();
         for (const breakpoint of all) {
@@ -702,6 +745,7 @@ export class DebugSession implements CompositeTreeElement {
         }
         return [...positions.values()];
     }
+
     protected *getAffectedUris(uri?: URI): IterableIterator<URI> {
         if (uri) {
             yield uri;
@@ -764,4 +808,19 @@ export class DebugSession implements CompositeTreeElement {
             this.clearThread(threadId);
         }
     };
+
+    private getDebugPluginConfig(args: LaunchVSCodeArgument[]): DebugPluginConfiguration {
+        let pluginLocation;
+        for (const arg of args) {
+            if (arg && arg.prefix) {
+                if (arg.prefix === '--extensionDevelopmentPath=') {
+                    pluginLocation = arg.path!;
+                }
+            }
+        }
+
+        return {
+            pluginLocation
+        };
+    }
 }

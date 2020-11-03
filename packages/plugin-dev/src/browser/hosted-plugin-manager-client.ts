@@ -23,7 +23,7 @@ import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser';
 import { OpenFileDialogFactory, DirNode } from '@theia/filesystem/lib/browser';
 import { HostedPluginServer } from '../common/plugin-dev-protocol';
-import { DebugConfiguration as HostedDebugConfig } from '../common';
+import { DebugPluginConfiguration } from '@theia/debug/lib/browser/debug-plugin-contribution';
 import { DebugSessionManager } from '@theia/debug/lib/browser/debug-session-manager';
 import { HostedPluginPreferences } from './hosted-plugin-preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -138,7 +138,7 @@ export class HostedPluginManagerClient {
         return undefined;
     }
 
-    async start(debugConfig?: HostedDebugConfig): Promise<void> {
+    async start(debugConfig?: DebugPluginConfiguration): Promise<void> {
         if (await this.hostedPluginServer.isHostedPluginInstanceRunning()) {
             this.messageService.warn('Hosted instance is already running.');
             return;
@@ -174,9 +174,11 @@ export class HostedPluginManagerClient {
         }
     }
 
-    async debug(): Promise<void> {
-        await this.start({ debugMode: this.hostedPluginPreferences['hosted-plugin.debugMode'] });
+    async debug(config?: DebugPluginConfiguration): Promise<string | undefined> {
+        await this.start(this.setDebugConfig(config));
         await this.startDebugSessionManager();
+
+        return this.pluginInstanceURL;
     }
 
     async startDebugSessionManager(): Promise<void> {
@@ -308,6 +310,14 @@ export class HostedPluginManagerClient {
 
     protected getErrorMessage(error: Error): string {
         return error.message.substring(error.message.indexOf(':') + 1);
+    }
+
+    private setDebugConfig(config?: DebugPluginConfiguration): DebugPluginConfiguration {
+        config = Object.assign(config || {}, { debugMode: this.hostedPluginPreferences['hosted-plugin.debugMode'] });
+        if (config.pluginLocation) {
+            this.pluginLocation = new URI((!config.pluginLocation.startsWith('/') ? '/' : '') + config.pluginLocation.replace(/\\/g, '/')).withScheme('file');
+        }
+        return config;
     }
 }
 

@@ -124,9 +124,9 @@ export class HostedPluginProcess implements ServerPluginRunner {
 
     killProcessTree(parentPid: number): void {
         psTree(parentPid, (_, childProcesses) => {
-            childProcesses.forEach(childProcess =>
-                this.killProcess(parseInt(childProcess.PID))
-            );
+            childProcesses.forEach(childProcess => {
+                this.killProcess(parseInt(childProcess.PID));
+            });
             this.killProcess(parentPid);
         });
     }
