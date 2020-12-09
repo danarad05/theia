@@ -22,7 +22,7 @@ import URI from '@theia/core/lib/common/uri';
 import { HostedPluginReader } from './hosted-plugin-reader';
 import { HostedPluginsManager } from './hosted-plugins-manager';
 import { HostedPluginSupport } from '@theia/plugin-ext/lib/hosted/node/hosted-plugin';
-import { DebugPluginConfiguration } from '@theia/debug/lib/browser/debug-plugin-contribution';
+import { DebugPluginConfiguration } from '@theia/debug/lib/browser/debug-contribution';
 
 @injectable()
 export class HostedPluginServerImpl implements HostedPluginServer {

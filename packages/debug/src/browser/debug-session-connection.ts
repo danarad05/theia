@@ -157,8 +157,6 @@ export class DebugSessionConnection implements Disposable {
     protected allThreadsContinued = true;
     async sendRequest<K extends keyof DebugRequestTypes>(command: K, args: DebugRequestTypes[K][0]): Promise<DebugRequestTypes[K][1]> {
         console.log('AAAA DSC sendRequest 1 sessionId: ' + this.sessionId, command, args);
-        // let result;
-        // try {
         const result = await this.doSendRequest(command, args);
         console.log('AAAA DSC sendRequest 2 sessionId: ' + this.sessionId, command, args);
         if (command === 'next' || command === 'stepIn' ||

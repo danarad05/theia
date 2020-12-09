@@ -15,7 +15,7 @@
  ********************************************************************************/
 
 import { JsonRpcServer } from '@theia/core/lib/common/messaging/proxy-factory';
-import { DebugPluginConfiguration } from '@theia/debug/lib/browser/debug-plugin-contribution';
+import { DebugPluginConfiguration } from '@theia/debug/lib/browser/debug-contribution';
 import { PluginMetadata } from '@theia/plugin-ext/lib/common/plugin-protocol';
 
 export const hostedServicePath = '/services/plugin-dev';
