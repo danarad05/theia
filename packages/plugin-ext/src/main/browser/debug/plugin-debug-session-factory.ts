@@ -30,7 +30,7 @@ import { TerminalWidgetOptions, TerminalWidget } from '@theia/terminal/lib/brows
 import { TerminalOptionsExt } from '../../../common/plugin-api-rpc';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { ContributionProvider } from '@theia/core/lib/common';
-import { DebugPluginContribution } from '@theia/debug/lib/browser/debug-plugin-contribution';
+import { DebugContribution } from '@theia/debug/lib/browser/debug-contribution';
 
 export class PluginDebugSession extends DebugSession {
     constructor(
@@ -44,8 +44,8 @@ export class PluginDebugSession extends DebugSession {
         protected readonly messages: MessageClient,
         protected readonly fileService: FileService,
         protected readonly terminalOptionsExt: TerminalOptionsExt | undefined,
-        protected readonly debugPluginCP: ContributionProvider<DebugPluginContribution>) {
-        super(id, options, connection, terminalServer, editorManager, breakpoints, labelProvider, messages, fileService, debugPluginCP);
+        protected readonly debugCP: ContributionProvider<DebugContribution>) {
+        super(id, options, connection, terminalServer, editorManager, breakpoints, labelProvider, messages, fileService, debugCP);
     }
 
     protected async doCreateTerminal(terminalWidgetOptions: TerminalWidgetOptions): Promise<TerminalWidget> {
@@ -70,7 +70,7 @@ export class PluginDebugSessionFactory extends DefaultDebugSessionFactory {
         protected readonly connectionFactory: (sessionId: string) => Promise<IWebSocket>,
         protected readonly fileService: FileService,
         protected readonly terminalOptionsExt: TerminalOptionsExt | undefined,
-        protected readonly debugPluginCP: ContributionProvider<DebugPluginContribution>
+        protected readonly debugCP: ContributionProvider<DebugContribution>
     ) {
         super();
     }
@@ -92,7 +92,7 @@ export class PluginDebugSessionFactory extends DefaultDebugSessionFactory {
             this.messages,
             this.fileService,
             this.terminalOptionsExt,
-            this.debugPluginCP
+            this.debugCP
         );
     }
 }

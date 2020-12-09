@@ -23,11 +23,12 @@ import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser';
 import { OpenFileDialogFactory, DirNode } from '@theia/filesystem/lib/browser';
 import { HostedPluginServer } from '../common/plugin-dev-protocol';
-import { DebugPluginConfiguration } from '@theia/debug/lib/browser/debug-plugin-contribution';
+import { DebugPluginConfiguration, LaunchVSCodeArgument, LaunchVSCodeRequest, LaunchVSCodeResult } from '@theia/debug/lib/browser/debug-plugin-contribution';
 import { DebugSessionManager } from '@theia/debug/lib/browser/debug-session-manager';
 import { HostedPluginPreferences } from './hosted-plugin-preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
+import { DebugSessionConnection } from '@theia/debug/lib/browser/debug-session-connection';
 
 /**
  * Commands to control Hosted plugin instances.
@@ -85,7 +86,7 @@ export interface HostedInstanceData {
 @injectable()
 export class HostedPluginManagerClient {
     private openNewTabAskDialog: OpenHostedInstanceLinkDialog;
-
+    protected connection: DebugSessionConnection;
     // path to the plugin on the file system
     protected pluginLocation: URI | undefined;
 
@@ -175,8 +176,10 @@ export class HostedPluginManagerClient {
     }
 
     async debug(config?: DebugPluginConfiguration): Promise<string | undefined> {
+        // console.log('AAAA HPMC debug 1 sessionId:' + this.connection.sessionId, config);
         await this.start(this.setDebugConfig(config));
         await this.startDebugSessionManager();
+        // console.log('AAAA HPMC debug 2 sessionId:' + this.connection.sessionId, config);
 
         return this.pluginInstanceURL;
     }
@@ -203,16 +206,26 @@ export class HostedPluginManagerClient {
     }
 
     async stop(checkRunning: boolean = true): Promise<void> {
+        console.log('AAAA HPMC stop 1 sessionId:' + this.connection.sessionId);
         if (checkRunning && !await this.hostedPluginServer.isHostedPluginInstanceRunning()) {
+            console.log('AAAA HPMC stop 2 sessionId:' + this.connection.sessionId);
             this.messageService.warn('Hosted instance is not running.');
             return;
         }
         try {
+            console.log('AAAA HPMC stop 3 sessionId:' + this.connection.sessionId);
             this.stateChanged.fire({ state: HostedInstanceState.STOPPING, pluginLocation: this.pluginLocation! });
+            // console.log('AAAA HPMC stop 3.1 sessionId:' + this.connection.sessionId);
             await this.hostedPluginServer.terminateHostedPluginInstance();
+            console.log('AAAA HPMC stop 3.2 sessionId:' + this.connection.sessionId);
             this.messageService.info((this.pluginInstanceURL ? this.pluginInstanceURL : 'The instance') + ' has been terminated.');
+            // console.log('AAAA HPMC stop 3.3 sessionId:' + this.connection.sessionId);
             this.stateChanged.fire({ state: HostedInstanceState.STOPPED, pluginLocation: this.pluginLocation! });
+            console.log('AAAA HPMC stop 4 sessionId:' + this.connection.sessionId);
+            // this.connection['fire']('exited', { reason: 'AAA exited' });
+            // console.log('AAAA HPMC stop 4.1 sessionId:' + this.connection.sessionId);
         } catch (error) {
+            console.log('AAAA HPMC stop 5 - error sessionId:' + this.connection.sessionId, error);
             this.messageService.error(this.getErrorMessage(error));
         }
     }
@@ -289,6 +302,75 @@ export class HostedPluginManagerClient {
         }
     }
 
+    register(connection: DebugSessionConnection): void {
+        console.log('AAAA HPMC register 1 sessionId:' + connection.sessionId);
+        this.connection = connection;
+        this.connection.onRequest('launchVSCode', (request: LaunchVSCodeRequest) => this.launchVSCode(request));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // this.connection.onRequest('restart', (req: any) => {
+        //     console.log('AAAA HPMC register 1.4 restart sessionId:' + connection.sessionId, req);
+        // });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // this.connection.on('terminated', async (args: any) => {
+        //     console.log('AAAA HPMC register 1.5 terminated sessionId:' + connection.sessionId, args);
+        //     // await this.disconnect(args);
+        //     await this.stop();
+        //     // console.log('AAAA HPMC register 1.51 terminated sessionId:' + connection.sessionId, args);
+        //     // this.debugSessionManager.destroy(connection.sessionId);
+        //     // console.log('AAAA HPMC register 1.52 terminated sessionId:' + connection.sessionId, args);
+        // });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // this.connection.on('stopped', (args: any) => {
+        //     console.log('AAAA HPMC register 1.6 stopped sessionId:' + connection.sessionId, args);
+        // });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.connection.on('exited', async (args: any) => {
+            console.log('AAAA HPMC register 1.7 exited sessionId:' + connection.sessionId, args);
+            // await this.disconnect(args);
+            await this.stop();
+        });
+        console.log('AAAA HPMC register 2 sessionId:' + connection.sessionId);
+    }
+
+    protected async launchVSCode({ arguments: { args } }: LaunchVSCodeRequest): Promise<LaunchVSCodeResult> {
+        console.log('AAAA HPMC launchVSCode 1 sessionId:' + this.connection.sessionId);
+        let result = {};
+        const instanceURI = await this.debug(this.getDebugPluginConfig(args));
+        if (instanceURI) {
+            const instanceURL = new URL(instanceURI);
+            if (instanceURL.port) {
+                result = Object.assign(result, { rendererDebugPort: instanceURL.port });
+            }
+        }
+        console.log('AAAA HPMC launchVSCode 2 sessionId:' + this.connection.sessionId, result);
+        return result;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // protected async disconnect(args: any): Promise<void> {
+    //     console.log('AAAA HPMC disconnect 1 sessionId:' + this.connection.sessionId);
+    //     if (args && args.restart) {
+    //         this.restart();
+    //     } else {
+    //         this.stop();
+    //     }
+    // }
+
+    private getDebugPluginConfig(args: LaunchVSCodeArgument[]): DebugPluginConfiguration {
+        let pluginLocation;
+        for (const arg of args) {
+            if (arg && arg.prefix) {
+                if (arg.prefix === '--extensionDevelopmentPath=') {
+                    pluginLocation = arg.path!;
+                }
+            }
+        }
+
+        return {
+            pluginLocation
+        };
+    }
+
     /**
      * Opens window with URL to the running plugin instance.
      */
@@ -309,7 +391,10 @@ export class HostedPluginManagerClient {
     }
 
     protected getErrorMessage(error: Error): string {
-        return error.message.substring(error.message.indexOf(':') + 1);
+        if (!error.message) {
+            console.log('AAAA HPMC getErrorMessage 1 sessionId:' + this.connection.sessionId, error);
+        }
+        return error.message ? error.message.substring(error.message.indexOf(':') + 1) : 'AAA getErrorMessage message undefined';
     }
 
     private setDebugConfig(config?: DebugPluginConfiguration): DebugPluginConfiguration {

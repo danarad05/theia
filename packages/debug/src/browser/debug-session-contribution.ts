@@ -30,7 +30,7 @@ import { IWebSocket } from 'vscode-ws-jsonrpc/lib/socket/socket';
 import { DebugAdapterPath } from '../common/debug-service';
 import { ContributionProvider } from '@theia/core/lib/common/contribution-provider';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { DebugPluginContribution } from './debug-plugin-contribution';
+import { DebugContribution } from './debug-contribution';
 
 /**
  * DebugSessionContribution symbol for DI.
@@ -113,8 +113,8 @@ export class DefaultDebugSessionFactory implements DebugSessionFactory {
     protected readonly debugPreferences: DebugPreferences;
     @inject(FileService)
     protected readonly fileService: FileService;
-    @inject(ContributionProvider) @named(DebugPluginContribution)
-    protected readonly debugPluginCP: ContributionProvider<DebugPluginContribution>;
+    @inject(ContributionProvider) @named(DebugContribution)
+    protected readonly debugCP: ContributionProvider<DebugContribution>;
 
     get(sessionId: string, options: DebugSessionOptions): DebugSession {
         const connection = new DebugSessionConnection(
@@ -135,7 +135,7 @@ export class DefaultDebugSessionFactory implements DebugSessionFactory {
             this.labelProvider,
             this.messages,
             this.fileService,
-            this.debugPluginCP);
+            this.debugCP);
     }
 
     protected getTraceOutputChannel(): OutputChannel | undefined {

@@ -101,6 +101,7 @@ export class DebugSessionConnection implements Disposable {
 
     protected readonly pendingRequests = new Map<number, (response: DebugProtocol.Response) => void>();
     protected readonly connection: Promise<IWebSocket>;
+    protected readonly requestsSent = new Map<number, number>();
 
     protected readonly requestHandlers = new Map<string, DebugRequestHandler>();
 
@@ -131,6 +132,7 @@ export class DebugSessionConnection implements Disposable {
     }
 
     dispose(): void {
+        console.log('AAAA DSC dispose sessionId: ' + this.sessionId);
         this.toDispose.dispose();
     }
 
@@ -140,8 +142,12 @@ export class DebugSessionConnection implements Disposable {
         } else {
             const connection = await this.connectionFactory(this.sessionId);
             connection.onClose((code, reason) => {
+                console.log('AAAA DSC createConnection onClose 1 sessionId: ' + this.sessionId, reason);
                 connection.dispose();
                 this.fire('exited', { code, reason });
+            });
+            connection.onError((reason: any) => {
+                console.log('AAAA DSC createConnection onError 1 sessionId: ' + this.sessionId, reason);
             });
             connection.onMessage(data => this.handleMessage(data));
             return connection;
@@ -150,7 +156,11 @@ export class DebugSessionConnection implements Disposable {
 
     protected allThreadsContinued = true;
     async sendRequest<K extends keyof DebugRequestTypes>(command: K, args: DebugRequestTypes[K][0]): Promise<DebugRequestTypes[K][1]> {
+        console.log('AAAA DSC sendRequest 1 sessionId: ' + this.sessionId, command, args);
+        // let result;
+        // try {
         const result = await this.doSendRequest(command, args);
+        console.log('AAAA DSC sendRequest 2 sessionId: ' + this.sessionId, command, args);
         if (command === 'next' || command === 'stepIn' ||
             command === 'stepOut' || command === 'stepBack' ||
             command === 'reverseContinue' || command === 'restartFrame') {
@@ -165,6 +175,21 @@ export class DebugSessionConnection implements Disposable {
             this.fireContinuedEvent((args as any).threadId, this.allThreadsContinued);
             return result;
         }
+        // } catch (error) {
+        //     console.log('AAAA DSC sendRequest error sessionId: ' + this.sessionId, command, args, error);
+        //     // result = {
+        //     //     type: 'response',
+        //     //     request_seq: request.seq,
+        //     //     command: command,
+        //     //     seq: 0,
+        //     //     success: false,
+        //     //     message: 'debug session is closed',
+        //     //     body: {
+        //     //         session_closed: true
+        //     //     }
+        //     // };
+        // }
+
         return result;
     }
     sendCustomRequest<T extends DebugProtocol.Response>(command: string, args?: any): Promise<T> {
@@ -181,29 +206,69 @@ export class DebugSessionConnection implements Disposable {
         };
 
         const onDispose = this.toDispose.push(Disposable.create(() => {
+            console.log('AAAA DSC doSendRequest 1 onDispose sessionId:' + this.sessionId, request.seq);
             const pendingRequest = this.pendingRequests.get(request.seq);
+            console.log('AAAA DSC doSendRequest 2 onDispose sessionId:' + this.sessionId, request.seq);
             if (pendingRequest) {
+                console.log('AAAA DSC doSendRequest 3 onDispose sessionId:' + this.sessionId, request.seq);
                 pendingRequest({
                     type: 'response',
                     request_seq: request.seq,
                     command: request.command,
                     seq: 0,
                     success: false,
-                    message: 'debug session is closed'
+                    message: 'debug session is closed',
+                    body: {
+                        session_closed: true
+                    }
                 });
             }
         }));
         this.pendingRequests.set(request.seq, (response: K) => {
+            console.log('AAAA DSC doSendRequest 1 this.pendingRequests.set sessionId:' + this.sessionId, request.seq);
             onDispose.dispose();
+            console.log('AAAA DSC doSendRequest 2 this.pendingRequests.set sessionId:' + this.sessionId, request.seq);
             if (!response.success) {
+                console.log('AAAA DSC doSendRequest 3 this.pendingRequests.set reject sessionId:' + this.sessionId, request.seq);
                 result.reject(response);
             } else {
+                console.log('AAAA DSC doSendRequest 4 this.pendingRequests.set resolve sessionId:' + this.sessionId, request.seq);
                 result.resolve(response);
             }
         });
 
         await this.send(request);
+        if (request.command === 'disconnect') {
+            this.requestsIsSent(request);
+        };
         return result.promise;
+    }
+
+    protected requestsIsSent(request: DebugProtocol.Request): Promise<boolean> {
+        console.log('AAAA DSC requestsIsSent 1 sessionId:' + this.sessionId, request.seq);
+        return new Promise<boolean>(resolve => {
+            setTimeout(() => {
+                console.log('AAAA DSC requestsIsSent 2 sessionId:' + this.sessionId, request.seq);
+                const cb = this.pendingRequests.get(request.seq);
+                console.log('AAAA DSC requestsIsSent 3 sessionId:' + this.sessionId, request.seq);
+                if (cb) {
+                    console.log('AAAA DSC requestsIsSent 4 sessionId:' + this.sessionId, request.seq);
+                    this.handleResponse({
+                        type: 'response',
+                        request_seq: request.seq,
+                        command: request.command,
+                        seq: 0,
+                        success: false,
+                        message: 'debug session is closed',
+                        body: {
+                            session_closed: true
+                        }
+                    });
+                    console.log('AAAA DSC requestsIsSent 5 sessionId:' + this.sessionId, request.seq);
+                }
+                resolve();
+            }, 3000);
+        });
     }
 
     protected async send(message: DebugProtocol.ProtocolMessage): Promise<void> {
@@ -230,9 +295,11 @@ export class DebugSessionConnection implements Disposable {
     }
 
     protected handleResponse(response: DebugProtocol.Response): void {
+        console.log('AAAA DSC handleResponse 1 sessionId:' + this.sessionId, response);
         const callback = this.pendingRequests.get(response.request_seq);
         if (callback) {
             this.pendingRequests.delete(response.request_seq);
+            console.log('AAAA DSC handleResponse 2 sessionId:' + this.sessionId, response);
             callback(response);
         }
     }
@@ -295,7 +362,7 @@ export class DebugSessionConnection implements Disposable {
     }
     protected newEmitter(): Emitter<DebugProtocol.Event | DebugExitEvent> {
         const emitter = new Emitter();
-        this.checkDisposed();
+        // this.checkDisposed();
         this.toDispose.push(emitter);
         return emitter;
     }

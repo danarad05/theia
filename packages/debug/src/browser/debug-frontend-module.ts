@@ -59,10 +59,10 @@ import { DebugInlineValueDecorator } from './editor/debug-inline-value-decorator
 import { JsonSchemaContribution } from '@theia/core/lib/browser/json-schema-store';
 import { TabBarDecorator } from '@theia/core/lib/browser/shell/tab-bar-decorator';
 import { DebugTabBarDecorator } from './debug-tab-bar-decorator';
-import { DebugPluginContribution } from './debug-plugin-contribution';
+import { DebugContribution } from './debug-contribution';
 
 export default new ContainerModule((bind: interfaces.Bind) => {
-    bindContributionProvider(bind, DebugPluginContribution);
+    bindContributionProvider(bind, DebugContribution);
 
     bind(DebugCallStackItemTypeKey).toDynamicValue(({ container }) =>
         container.get(ContextKeyService).createKey('callStackItemType', undefined)

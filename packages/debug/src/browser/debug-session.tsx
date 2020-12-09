@@ -39,7 +39,7 @@ import { SourceBreakpoint, ExceptionBreakpoint } from './breakpoint/breakpoint-m
 import { TerminalWidgetOptions, TerminalWidget } from '@theia/terminal/lib/browser/base/terminal-widget';
 import { DebugFunctionBreakpoint } from './model/debug-function-breakpoint';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { DebugPluginConfiguration, DebugPluginContribution, LaunchVSCodeArgument, LaunchVSCodeRequest, LaunchVSCodeResult } from './debug-plugin-contribution';
+import { DebugContribution, LaunchVSCodeRequest, LaunchVSCodeResult } from './debug-contribution';
 
 export enum DebugState {
     Inactive,
@@ -74,10 +74,14 @@ export class DebugSession implements CompositeTreeElement {
         protected readonly labelProvider: LabelProvider,
         protected readonly messages: MessageClient,
         protected readonly fileService: FileService,
-        protected readonly debugPluginCP: ContributionProvider<DebugPluginContribution>
+        protected readonly debugCP: ContributionProvider<DebugContribution>
     ) {
+        console.log('AAAA DS Ctor 1 sessionId:' + this.id);
         this.connection.onRequest('runInTerminal', (request: DebugProtocol.RunInTerminalRequest) => this.runInTerminal(request));
-        this.connection.onRequest('launchVSCode', (request: LaunchVSCodeRequest) => this.launchVSCode(request));
+        // this.connection.onRequest('launchVSCode', (request: LaunchVSCodeRequest) => this.launchVSCode(request));
+        if (options.configuration.type === 'pwa-extensionHost') {
+            this.registerDebugContributions(this.connection);
+        }
 
         this.toDispose.pushAll([
             this.onDidChangeEmitter,
@@ -92,13 +96,17 @@ export class DebugSession implements CompositeTreeElement {
             this.on('continued', e => this.handleContinued(e)),
             this.on('stopped', e => this.handleStopped(e)),
             this.on('thread', e => this.handleThread(e)),
-            this.on('terminated', () => this.terminated = true),
+            this.on('terminated', (e: any) => {
+                console.log('AAAA DS terminated ', e, this.connection.sessionId);
+                this.terminated = true;
+            }),
             this.on('capabilities', event => this.updateCapabilities(event.body.capabilities)),
             this.breakpoints.onDidChangeMarkers(uri => this.updateBreakpoints({ uri, sourceModified: true }))
         ]);
     }
 
     dispose(): void {
+        console.log('AAAA DS dispose 1 sessionId:' + this.id);
         this.toDispose.dispose();
     }
 
@@ -245,11 +253,14 @@ export class DebugSession implements CompositeTreeElement {
     }
 
     async start(): Promise<void> {
+        // console.log('AAAA DS start 1 sessionId:' + this.id);
         await this.initialize();
         await this.launchOrAttach();
+        // console.log('AAAA DS start 2 sessionId:' + this.id);
     }
 
     protected async initialize(): Promise<void> {
+        // console.log('AAAA DS initialize 1 sessionId:' + this.id);
         const response = await this.connection.sendRequest('initialize', {
             clientID: 'Theia',
             clientName: 'Theia IDE',
@@ -262,13 +273,16 @@ export class DebugSession implements CompositeTreeElement {
             supportsVariablePaging: false,
             supportsRunInTerminalRequest: true
         });
-        this.updateCapabilities(response.body || {});
+        this.updateCapabilities(response && response.body ? response.body : {});
     }
 
     protected async launchOrAttach(): Promise<void> {
         try {
+            console.log('AAAA DS launchOrAttach 1 sessionId:' + this.id);
             await this.sendRequest((this.configuration.request === 'attach' ? 'attach' : 'launch'), this.configuration);
+            console.log('AAAA DS launchOrAttach 2 sessionId:' + this.id);
         } catch (reason) {
+            console.log('AAAA DS launchOrAttach 3- error sessionId:' + this.id, reason);
             this.fireExited(reason);
             await this.messages.showMessage({
                 type: MessageType.Error,
@@ -301,50 +315,82 @@ export class DebugSession implements CompositeTreeElement {
 
     protected terminated = false;
     async terminate(restart?: boolean): Promise<void> {
+        console.log('AAAA DS terminate 1 sessionId:' + this.id);
         if (!this.terminated && this.capabilities.supportsTerminateRequest && this.configuration.request === 'launch') {
+            console.log('AAAA DS terminate 2 sessionId:' + this.id);
             this.terminated = true;
             await this.connection.sendRequest('terminate', { restart });
+            console.log('AAAA DS terminate 3 sessionId:' + this.id);
             if (!await this.exited(1000)) {
+                console.log('AAAA DS terminate 4 sessionId:' + this.id);
                 await this.disconnect(restart);
             }
+            console.log('AAAA DS terminate 5 sessionId:' + this.id);
         } else if (this.configuration.type === 'pwa-extensionHost') {
-            await this.stopExtensionHost(true);
-            this.fireExited();
+            await this.disconnect(restart);
+            // this.fireExited();
         } else {
+            console.log('AAAA DS terminate 6 sessionId:' + this.id);
             await this.disconnect(restart);
         }
     }
 
     protected async disconnect(restart?: boolean): Promise<void> {
         try {
-            await this.sendRequest('disconnect', { restart });
+            console.log('AAAA DS disconnect 1 sessionId:' + this.id);
+            this.sendRequest('disconnect', { restart })
+                .then((res: any) => {
+                    console.log('AAAA DS disconnect 1.3 sessionId:' + this.id);
+                })
+                .catch((res: any) => {
+                    console.log('AAAA DS disconnect 1.311 catch start sessionId:' + this.id, res);
+                    this.fireExited();
+                    console.log('AAAA DS disconnect 1.312 catch end sessionId:' + this.id, res);
+                    return;
+                })
+                .finally(() => {
+                    console.log('AAAA DS disconnect 1.32 sessionId:' + this.id);
+                });
+            console.log('AAAA DS disconnect 1.5 sessionId:' + this.id);
         } catch (reason) {
+            console.log('AAAA DS disconnect 2 - error catch sessionId:' + this.id, reason);
+            // if (!(reason && reason.body && reason.body.session_closed)) {
+            // console.log('AAAA DS disconnect 3 - error sessionId:' + this.id, reason);
             this.fireExited(reason);
             return;
+            // }
         }
+        console.log('AAAA DS disconnect 4 sessionId:' + this.id);
         const timeout = 500;
         if (!await this.exited(timeout)) {
+            console.log('AAAA DS disconnect 5 sessionId:' + this.id);
             this.fireExited(new Error(`timeout after ${timeout} ms`));
+            console.log('AAAA DS disconnect 6 after fireExited sessionId:' + this.id);
         }
     }
 
-    protected async stopExtensionHost(checkRunning: boolean): Promise<void> {
-        for (const contrib of this.debugPluginCP.getContributions()) {
-            await contrib.stop(checkRunning);
-        }
-    }
+    // protected async stopExtensionHost(checkRunning: boolean): Promise<void> {
+    //     for (const contrib of this.debugCP.getContributions()) {
+    //         await contrib.stop(checkRunning);
+    //     }
+    // }
 
     protected fireExited(reason?: Error): void {
+        console.log('AAAA DS fireExited 1 sessionId:' + this.id, reason);
         this.connection['fire']('exited', { reason });
+        console.log('AAAA DS fireExited 2 sessionId:' + this.id, reason);
     }
 
     protected exited(timeout: number): Promise<boolean> {
+        console.log('AAAA DS exited 1 sessionId:' + this.id);
         return new Promise<boolean>(resolve => {
             const listener = this.on('exited', () => {
+                console.log('AAAA DS exited 2 sessionId:' + this.id);
                 listener.dispose();
                 resolve(true);
             });
             setTimeout(() => {
+                console.log('AAAA DS exited 3 sessionId:' + this.id);
                 listener.dispose();
                 resolve(false);
             }, timeout);
@@ -354,10 +400,16 @@ export class DebugSession implements CompositeTreeElement {
     async restart(): Promise<boolean> {
         if (this.capabilities.supportsRestartRequest) {
             this.terminated = false;
-            if (this.configuration.type === 'pwa-extensionHost') {
-                await this.stopExtensionHost(true);
-            }
+            // if (this.configuration.type === 'pwa-extensionHost') {
+            //     this.fireExited();
+            //     await this.start();
+            //     // await this.terminate(true);
+            //     // await this.connection.sendRequest('terminate', { restart: true });
+            //     // this.connection['fire']('terminated', { event: 'terminated', body: { restart: true } });
+            //     // await this.stopExtensionHost(true);
+            // } else {
             await this.sendRequest('restart', {});
+            // }
             return true;
         }
         return false;
@@ -399,19 +451,19 @@ export class DebugSession implements CompositeTreeElement {
     }
 
     protected async launchVSCode({ arguments: { args } }: LaunchVSCodeRequest): Promise<LaunchVSCodeResult> {
-        let result = {};
-        for (const contrib of this.debugPluginCP.getContributions()) {
-            const instanceURI = await contrib.debug(this.getDebugPluginConfig(args));
-            if (instanceURI) {
-                const instanceURL = new URL(instanceURI);
-                if (instanceURL.port) {
-                    result = Object.assign(result, { rendererDebugPort: instanceURL.port });
-                }
-            }
-        }
-        return result;
+        console.log('AAAA DS launchVSCode 1 sessionId:' + this.id, args);
+        // let result = {};
+        // for (const contrib of this.debugCP.getContributions()) {
+        //     const instanceURI = await contrib.re(this.getDebugPluginConfig(args));
+        //     if (instanceURI) {
+        //         const instanceURL = new URL(instanceURI);
+        //         if (instanceURL.port) {
+        //             result = Object.assign(result, { rendererDebugPort: instanceURL.port });
+        //         }
+        //     }
+        // }
+        return {};
     }
-
     protected async doCreateTerminal(options: TerminalWidgetOptions): Promise<TerminalWidget> {
         let terminal = undefined;
         for (const t of this.terminalServer.all) {
@@ -430,6 +482,7 @@ export class DebugSession implements CompositeTreeElement {
     }
 
     protected clearThreads(): void {
+        console.log('AAAA DS clearThreads 1 sessionId:' + this.id);
         for (const thread of this.threads) {
             thread.clear();
         }
@@ -437,6 +490,7 @@ export class DebugSession implements CompositeTreeElement {
     }
 
     protected clearThread(threadId: number): void {
+        console.log('AAAA DS clearThread 1 sessionId:' + this.id);
         const thread = this._threads.get(threadId);
         if (thread) {
             thread.clear();
@@ -776,7 +830,7 @@ export class DebugSession implements CompositeTreeElement {
 
     render(): React.ReactNode {
         return <div className='theia-debug-session' title='Session'>
-            <span className='label'>{this.label}</span>
+            <span className='label'>{this.label}{this.id}</span>
             <span className='status'>{this.state === DebugState.Stopped ? 'Paused' : 'Running'}</span>
         </div>;
     }
@@ -809,18 +863,9 @@ export class DebugSession implements CompositeTreeElement {
         }
     };
 
-    private getDebugPluginConfig(args: LaunchVSCodeArgument[]): DebugPluginConfiguration {
-        let pluginLocation;
-        for (const arg of args) {
-            if (arg && arg.prefix) {
-                if (arg.prefix === '--extensionDevelopmentPath=') {
-                    pluginLocation = arg.path!;
-                }
-            }
+    protected registerDebugContributions(connection: DebugSessionConnection): void {
+        for (const contrib of this.debugCP.getContributions()) {
+            contrib.register(connection);
         }
-
-        return {
-            pluginLocation
-        };
-    }
+    };
 }

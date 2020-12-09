@@ -229,7 +229,7 @@ export class HostedPluginController implements FrontendApplicationContribution {
                     try {
                         await this.hostedPluginServer.stopWatchCompilation(event.pluginLocation.toString());
                     } catch (error) {
-                        this.messageService.error(this.getErrorMessage(error.message));
+                        this.messageService.error(this.getErrorMessage(error));
                     }
                 }
             }
@@ -247,7 +247,10 @@ export class HostedPluginController implements FrontendApplicationContribution {
     }
 
     private getErrorMessage(error: Error): string {
-        return error.message.substring(error.message.indexOf(':') + 1);
+        if (!error.message) {
+            console.log('AAAA HPC getErrorMessage message undefined', error);
+        }
+        return error && error.message ? error.message.substring(error.message.indexOf(':') + 1) : 'AAAA getErrorMessage message undefined';
     }
 
     /**

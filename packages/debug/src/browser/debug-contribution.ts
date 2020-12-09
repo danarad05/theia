@@ -15,12 +15,12 @@
  ********************************************************************************/
 
 import { DebugProtocol } from 'vscode-debugprotocol';
+import { DebugSessionConnection } from './debug-session-connection';
 
-export const DebugPluginContribution = Symbol('DebugPluginContribution');
+export const DebugContribution = Symbol('DebugContribution');
 
-export interface DebugPluginContribution {
-    debug(debugConfig: DebugPluginConfiguration): Promise<string>;
-    stop(checkRunning: boolean): Promise<void>;
+export interface DebugContribution {
+    register(connection: DebugSessionConnection): void;
 }
 
 export interface DebugPluginConfiguration {

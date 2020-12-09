@@ -246,6 +246,7 @@ export class DebugSessionManager {
 
         let state = DebugState.Inactive;
         session.onDidChange(() => {
+            console.log('AAAA DSM onDidChange 1 - sessionId:' + session.id, 'state:' + state, 'session.state:' + session.state);
             if (state !== session.state) {
                 state = session.state;
                 if (state === DebugState.Stopped) {
@@ -255,7 +256,12 @@ export class DebugSessionManager {
             this.updateCurrentSession(session);
         });
         session.onDidChangeBreakpoints(uri => this.fireDidChangeBreakpoints({ session, uri }));
+        session.on('stopped', (event: any) => {
+            console.log('AAAA DSM on stopped 1 - do terminate() - sessionId:' + session.id, event, 'session.state:' + session.state);
+        });
         session.on('terminated', async event => {
+            console.log('AAAA DSM on terminated 1 - do terminate() - sessionId:' + session.id, event, 'session.state:' + session.state);
+
             const restart = event.body && event.body.restart;
             if (restart) {
                 // postDebugTask isn't run in case of auto restart as well as preLaunchTask
@@ -265,10 +271,15 @@ export class DebugSessionManager {
                 await this.runTask(session.options.workspaceFolderUri, session.configuration.postDebugTask);
             }
         });
-        session.on('exited', () => this.destroy(session.id));
+        session.on('exited', (reason: any) => {
+            console.log('AAAA DSM on exited 1 - do destroy sessionId :' + session?.id, reason, 'session.state:' + session.state);
+            this.destroy(session?.id);
+        });
         session.start().then(() => this.onDidStartDebugSessionEmitter.fire(session));
-        session.onDidCustomEvent(({ event, body }) =>
-            this.onDidReceiveDebugSessionCustomEventEmitter.fire({ event, body, session })
+        session.onDidCustomEvent(({ event, body }) => {
+            console.log('AAAA DSM onDidCustomEvent 1 - sessionId:' + session.id, event, 'session.state:' + session.state);
+            this.onDidReceiveDebugSessionCustomEventEmitter.fire({ event, body, session });
+        }
         );
         return session;
     }
@@ -292,7 +303,9 @@ export class DebugSessionManager {
     }
 
     protected remove(sessionId: string): void {
+        console.log('AAAA DSM remove 1 sessionId:' + sessionId);
         this._sessions.delete(sessionId);
+        console.log('AAAA DSM remove 2 sessionId:' + sessionId, this._sessions);
         const { currentSession } = this;
         if (currentSession && currentSession.id === sessionId) {
             this.updateCurrentSession(undefined);
@@ -394,11 +407,13 @@ export class DebugSessionManager {
     }
 
     private doDestroy(session: DebugSession): void {
+        console.log('AAAA DSM doDestroy 1 start sessionId:' + session.id);
         this.debug.terminateDebugSession(session.id);
 
         session.dispose();
         this.remove(session.id);
         this.onDidDestroyDebugSessionEmitter.fire(session);
+        console.log('AAAA DSM doDestroy 2 end sessionId:' + session.id);
     }
 
     getFunctionBreakpoints(session: DebugSession | undefined = this.currentSession): DebugFunctionBreakpoint[] {

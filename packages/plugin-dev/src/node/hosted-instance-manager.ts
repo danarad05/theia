@@ -158,11 +158,13 @@ export abstract class AbstractHostedInstanceManager implements HostedInstanceMan
     }
 
     terminate(): void {
+        console.log('AAAA HIM terminate 1 hostedInstanceProcess.pid:' + this.hostedInstanceProcess?.pid);
         if (this.isPluginRunning) {
             this.hostedPluginProcess.killProcessTree(this.hostedInstanceProcess.pid);
             this.hostedPluginSupport.sendLog({ data: 'Hosted instance has been terminated', type: LogType.Info });
             this.isPluginRunning = false;
         } else {
+            console.log('AAAA HIM terminate 2 Hosted plugin instance is not running hostedInstanceProcess.pid:' + this.hostedInstanceProcess?.pid);
             throw new Error('Hosted plugin instance is not running.');
         }
     }
