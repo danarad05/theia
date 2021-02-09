@@ -2891,7 +2891,6 @@ declare module '@theia/plugin' {
      * A provider that enables detection and handling of links within terminals.
      */
     // copied from https://github.com/microsoft/vscode/blob/bd20a720fba05f87ddb53c11c6af66936fd88a55/src/vs/vscode.d.ts#L5578-L5597
-
     export interface TerminalLinkProvider<T extends TerminalLink = TerminalLink> {
         /**
          * Provide terminal links for the given context. Note that this can be called multiple times
